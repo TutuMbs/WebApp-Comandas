@@ -105,12 +105,11 @@
     </div>
 
     <% if (orders.length === 0) { %>
-      <div class="empty-state">
+      <div class="empty-state" data-empty-state>
         <strong>Nenhuma comanda ativa.</strong>
         <p>Crie a primeira comanda para gerar o QR Code e acompanhar o fluxo.</p>
       </div>
-    <% } else { %>
-      <div class="table-wrap">
+      <div class="table-wrap" data-orders-table hidden>
         <table class="orders-table">
           <thead>
             <tr>
@@ -123,18 +122,35 @@
               <th>Ações</th>
             </tr>
           </thead>
-          <tbody>
-            <% orders.forEach((order) => { %>
-              <tr data-order-row data-order-id="<%= order.id %>">
-                <td>
-                  <strong><%= order.numberLabel %></strong>
-                </td>
-                <td>
-                  <strong><%= order.customerName %></strong>
-                </td>
-                <td>
-                  <span class="cell-muted"><%= order.items %></span>
-                </td>
+          <tbody data-orders-body></tbody>
+        </table>
+      </div>
+    <% } else { %>
+      <div class="table-wrap" data-orders-table>
+        <table class="orders-table">
+          <thead>
+            <tr>
+              <th>Nº</th>
+              <th>Cliente</th>
+              <th>Itens</th>
+              <th>Status</th>
+              <th>Atualizado</th>
+              <th>QR</th>
+              <th>Ações</th>
+            </tr>
+          </thead>
+          <tbody data-orders-body>
+	            <% orders.forEach((order) => { %>
+	              <tr data-order-row data-order-id="<%= order.id %>">
+	                <td>
+	                  <strong data-order-number><%= order.numberLabel %></strong>
+	                </td>
+	                <td>
+	                  <strong data-order-customer><%= order.customerName %></strong>
+	                </td>
+	                <td>
+	                  <span class="cell-muted" data-order-items><%= order.items %></span>
+	                </td>
                 <td>
                   <span
                     class="status-badge <%= order.statusClass %>"
@@ -144,12 +160,12 @@
                     <%= order.statusLabel %>
                   </span>
                 </td>
-                <td class="cell-muted"><%= order.updatedAtFormatted %></td>
-                <td>
-                  <a class="btn btn-ghost btn-sm" href="/orders/<%= order.id %>/qr">Abrir</a>
-                </td>
-                <td>
-                  <div class="action-row">
+	                <td class="cell-muted" data-order-updated><%= order.updatedAtFormatted %></td>
+	                <td>
+	                  <a class="btn btn-ghost btn-sm" href="/orders/<%= order.id %>/qr" data-order-qr>Abrir</a>
+	                </td>
+	                <td>
+	                  <div class="action-row" data-order-actions>
                     <% if (order.status !== 'preparing') { %>
                       <form method="post" action="/orders/<%= order.id %>/status">
                         <input type="hidden" name="status" value="preparing" />

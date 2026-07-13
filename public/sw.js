@@ -1,4 +1,4 @@
-const CACHE_NAME = 'comandas-qr-v1';
+const CACHE_NAME = 'comandas-qr-v2';
 const ASSETS = [
   '/',
   '/login',
@@ -49,11 +49,6 @@ self.addEventListener('fetch', (event) => {
         }
       }
 
-      const cached = await caches.match(event.request);
-      if (cached) {
-        return cached;
-      }
-
       try {
         const response = await fetch(event.request);
         if (response.ok && event.request.url.startsWith(self.location.origin)) {
@@ -62,6 +57,11 @@ self.addEventListener('fetch', (event) => {
         }
         return response;
       } catch {
+        const cached = await caches.match(event.request);
+        if (cached) {
+          return cached;
+        }
+
         const cachedLogin = await caches.match('/login');
         return cachedLogin || new Response('Offline', { status: 503, statusText: 'Offline' });
       }
