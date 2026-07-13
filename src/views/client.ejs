@@ -1,0 +1,48 @@
+<%- include('partials/head', { pageTitle, bodyClass: 'client-page' }) %>
+<main class="client-shell" data-order-id="<%= order.id %>">
+  <section class="client-hero">
+    <div class="eyebrow">Acompanhamento da comanda</div>
+    <h1><%= order.numberLabel %></h1>
+    <p class="lede">Deixe esta tela aberta. Quando o pedido ficar pronto, o celular vai avisar com som e vibração.</p>
+  </section>
+
+  <section class="client-status-card">
+    <div class="status-ring <%= order.statusClass %>" data-status-ring>
+      <span class="status-badge <%= order.statusClass %>" data-order-status data-status="<%= order.status %>">
+        <%= order.statusLabel %>
+      </span>
+    </div>
+
+    <div class="client-details">
+      <div>
+        <span>Cliente</span>
+        <strong><%= order.customerName %></strong>
+      </div>
+      <div>
+        <span>Itens</span>
+        <strong><%= order.items %></strong>
+      </div>
+      <div>
+        <span>Atualizado em</span>
+        <strong><%= order.updatedAtFormatted %></strong>
+      </div>
+    </div>
+
+    <div class="client-actions">
+      <button class="btn btn-primary" type="button" data-activate-sound>Ativar aviso sonoro</button>
+      <p class="muted" data-audio-hint>Toque uma vez para permitir o som quando a comanda ficar pronta.</p>
+    </div>
+
+    <div class="progress-track">
+      <span class="<%= order.status === 'awaiting' ? 'is-active' : 'is-done' %>">Aguardando</span>
+      <span class="<%= order.status === 'preparing' ? 'is-active' : order.status === 'ready' || order.status === 'delivered' ? 'is-done' : '' %>">Em preparo</span>
+      <span class="<%= order.status === 'ready' || order.status === 'delivered' ? 'is-active is-done' : '' %>">Pronto</span>
+    </div>
+  </section>
+</main>
+
+<% if (realtimeTransport === 'socket') { %>
+  <script src="/socket.io/socket.io.js"></script>
+<% } %>
+<script src="/client.js"></script>
+<%- include('partials/footer') %>

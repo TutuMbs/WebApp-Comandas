@@ -1,0 +1,24 @@
+{
+  "name": "webapp-comandas",
+  "version": "1.0.0",
+  "description": "MVP de webapp de comandas com QR Code e notificacao em tempo real.",
+  "main": "src/server.js",
+  "type": "commonjs",
+  "scripts": {
+    "dev": "NODE_ENV=development node src/server.js",
+    "start": "NODE_ENV=production node src/server.js",
+    "seed:demo": "node src/seed-demo.js"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "^2.57.4",
+    "bcryptjs": "^3.0.2",
+    "cookie-parser": "^1.4.7",
+    "dotenv": "^17.2.1",
+    "ejs": "^3.1.10",
+    "express": "^5.1.0",
+    "jsonwebtoken": "^9.0.2",
+    "nodemailer": "^7.0.7",
+    "qrcode": "^1.5.4",
+    "socket.io": "^4.8.1"
+  }
+}

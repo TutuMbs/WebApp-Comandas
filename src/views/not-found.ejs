@@ -1,0 +1,10 @@
+<%- include('partials/head', { pageTitle, bodyClass: 'error-page' }) %>
+<main class="error-shell">
+  <section class="error-card">
+    <div class="eyebrow">404</div>
+    <h1><%= message %></h1>
+    <p class="lede">Use o botão abaixo para voltar ao próximo passo disponível.</p>
+    <a class="btn btn-primary" href="<%= backUrl || '/' %>">Voltar</a>
+  </section>
+</main>
+<%- include('partials/footer') %>

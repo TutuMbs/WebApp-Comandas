@@ -1,0 +1,73 @@
+<%- include('partials/head', { pageTitle, bodyClass: 'app-page' }) %>
+<header class="topbar">
+  <div class="brand-wrap">
+    <a class="brand" href="/dashboard">
+      <span class="brand-mark">CQ</span>
+      <span>
+        <strong>Comandas QR</strong>
+        <small><%= authUser.establishment_name %></small>
+      </span>
+    </a>
+  </div>
+
+  <nav class="topnav">
+    <a class="nav-link" href="/dashboard">Ativas</a>
+    <a class="nav-link is-active" href="/history">Histórico</a>
+    <form action="/logout" method="post">
+      <button class="btn btn-ghost" type="submit">Sair</button>
+    </form>
+  </nav>
+</header>
+
+<main class="app-shell">
+  <section class="hero-panel slim">
+    <div>
+      <div class="eyebrow">Histórico</div>
+      <h1>Pedidos já entregues.</h1>
+      <p class="lede">Tudo que foi marcado como entregue continua registrado aqui para consulta rápida.</p>
+    </div>
+  </section>
+
+  <section class="panel">
+    <div class="panel-head">
+      <div>
+        <div class="eyebrow">Concluídas</div>
+        <h2>Últimas comandas finalizadas</h2>
+      </div>
+      <span class="pill"><%= orders.length %> registros</span>
+    </div>
+
+    <% if (orders.length === 0) { %>
+      <div class="empty-state">
+        <strong>Nenhuma comanda entregue ainda.</strong>
+        <p>Assim que você marcar como entregue, ela aparecerá aqui.</p>
+      </div>
+    <% } else { %>
+      <div class="table-wrap">
+        <table class="orders-table">
+          <thead>
+            <tr>
+              <th>Nº</th>
+              <th>Cliente</th>
+              <th>Itens</th>
+              <th>Pronto em</th>
+              <th>Entregue em</th>
+            </tr>
+          </thead>
+          <tbody>
+            <% orders.forEach((order) => { %>
+              <tr>
+                <td><strong><%= order.numberLabel %></strong></td>
+                <td><strong><%= order.customerName %></strong></td>
+                <td><span class="cell-muted"><%= order.items %></span></td>
+                <td class="cell-muted"><%= order.updatedAtFormatted %></td>
+                <td class="cell-muted"><%= order.deliveredAtFormatted %></td>
+              </tr>
+            <% }) %>
+          </tbody>
+        </table>
+      </div>
+    <% } %>
+  </section>
+</main>
+<%- include('partials/footer') %>

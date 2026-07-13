@@ -1,0 +1,41 @@
+<%- include('partials/head', { pageTitle, bodyClass: 'auth-page' }) %>
+<main class="auth-shell">
+  <section class="auth-card hero-card">
+    <div class="eyebrow">Novo estabelecimento</div>
+    <h1>Cadastre sua operação em poucos minutos.</h1>
+    <p class="lede">Cada conta gerencia suas próprias comandas, com QR Code público e status isolado.</p>
+    <div class="hero-badges">
+      <span>Multi-tenant simples</span>
+      <span>Senha protegida</span>
+      <span>Histórico</span>
+    </div>
+  </section>
+
+  <section class="auth-card form-card">
+    <h2>Criar conta</h2>
+    <% if (error) { %>
+      <div class="alert alert-error"><%= error %></div>
+    <% } %>
+
+    <form method="post" action="/register" class="stack">
+      <label>
+        <span>Nome do estabelecimento</span>
+        <input type="text" name="establishmentName" value="<%= form.establishmentName || '' %>" autocomplete="organization" required />
+      </label>
+      <label>
+        <span>E-mail</span>
+        <input type="email" name="email" value="<%= form.email || '' %>" autocomplete="email" required />
+      </label>
+      <label>
+        <span>Senha</span>
+        <input type="password" name="password" autocomplete="new-password" minlength="8" required />
+      </label>
+      <button class="btn btn-primary" type="submit">Criar conta e entrar</button>
+    </form>
+
+    <div class="auth-links">
+      <a href="/login">Já tenho conta</a>
+    </div>
+  </section>
+</main>
+<%- include('partials/footer') %>

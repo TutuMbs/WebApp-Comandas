@@ -1,0 +1,186 @@
+<%- include('partials/head', { pageTitle, bodyClass: 'app-page' }) %>
+<header class="topbar">
+  <div class="brand-wrap">
+    <a class="brand" href="/dashboard">
+      <span class="brand-mark">CQ</span>
+      <span>
+        <strong>Comandas QR</strong>
+        <small><%= authUser.establishment_name %></small>
+      </span>
+    </a>
+  </div>
+
+  <nav class="topnav">
+    <a class="nav-link" href="/dashboard">Ativas</a>
+    <a class="nav-link" href="/history">Histórico</a>
+    <form action="/logout" method="post">
+      <button class="btn btn-ghost" type="submit">Sair</button>
+    </form>
+  </nav>
+</header>
+
+<main class="app-shell">
+  <section class="hero-panel">
+    <div>
+      <div class="eyebrow">Operação em tempo real</div>
+      <h1>Monitore pedidos, gere QR Codes e acione o aviso de retirada.</h1>
+      <p class="lede">A página do cliente recebe a atualização sem recarregar. Quando ficar pronto, o celular vibra e toca.</p>
+    </div>
+
+    <div class="stats-grid">
+      <article class="stat-card">
+        <span>Ativas</span>
+        <strong><%= activeCount %></strong>
+      </article>
+      <article class="stat-card">
+        <span>Em preparo</span>
+        <strong><%= preparingCount %></strong>
+      </article>
+      <article class="stat-card">
+        <span>Prontas</span>
+        <strong><%= readyCount %></strong>
+      </article>
+    </div>
+  </section>
+
+  <section class="panel-grid">
+    <article class="panel">
+      <div class="panel-head">
+        <div>
+          <div class="eyebrow">Nova comanda</div>
+          <h2>Criar pedido rápido</h2>
+        </div>
+      </div>
+
+      <form method="post" action="/orders" class="stack compact">
+        <label>
+          <span>Nome do cliente</span>
+          <input type="text" name="customerName" placeholder="Opcional" />
+        </label>
+        <label>
+          <span>Itens / observações</span>
+          <textarea name="items" rows="3" placeholder="Ex.: 2 cafés, 1 pão de queijo"></textarea>
+        </label>
+        <button class="btn btn-primary" type="submit">Gerar comanda e QR</button>
+      </form>
+    </article>
+
+    <article class="panel">
+      <div class="panel-head">
+        <div>
+          <div class="eyebrow">Filtro</div>
+          <h2>Buscar comandas</h2>
+        </div>
+      </div>
+
+      <form method="get" action="/dashboard" class="filter-form">
+        <label>
+          <span>Busca</span>
+          <input type="search" name="q" value="<%= search || '' %>" placeholder="Número, cliente ou item" />
+        </label>
+        <label>
+          <span>Status</span>
+          <select name="status">
+            <option value="">Todas ativas</option>
+            <option value="awaiting" <%= selectedStatus === 'awaiting' ? 'selected' : '' %>>Aguardando</option>
+            <option value="preparing" <%= selectedStatus === 'preparing' ? 'selected' : '' %>>Em preparo</option>
+            <option value="ready" <%= selectedStatus === 'ready' ? 'selected' : '' %>>Pronto</option>
+          </select>
+        </label>
+        <div class="filter-actions">
+          <button class="btn btn-primary" type="submit">Filtrar</button>
+          <a class="btn btn-secondary" href="/dashboard">Limpar</a>
+        </div>
+      </form>
+    </article>
+  </section>
+
+  <section class="panel">
+    <div class="panel-head">
+      <div>
+        <div class="eyebrow">Fila ativa</div>
+        <h2>Comandas abertas</h2>
+      </div>
+      <span class="pill"><%= orders.length %> visíveis</span>
+    </div>
+
+    <% if (orders.length === 0) { %>
+      <div class="empty-state">
+        <strong>Nenhuma comanda ativa.</strong>
+        <p>Crie a primeira comanda para gerar o QR Code e acompanhar o fluxo.</p>
+      </div>
+    <% } else { %>
+      <div class="table-wrap">
+        <table class="orders-table">
+          <thead>
+            <tr>
+              <th>Nº</th>
+              <th>Cliente</th>
+              <th>Itens</th>
+              <th>Status</th>
+              <th>Atualizado</th>
+              <th>QR</th>
+              <th>Ações</th>
+            </tr>
+          </thead>
+          <tbody>
+            <% orders.forEach((order) => { %>
+              <tr data-order-row data-order-id="<%= order.id %>">
+                <td>
+                  <strong><%= order.numberLabel %></strong>
+                </td>
+                <td>
+                  <strong><%= order.customerName %></strong>
+                </td>
+                <td>
+                  <span class="cell-muted"><%= order.items %></span>
+                </td>
+                <td>
+                  <span
+                    class="status-badge <%= order.statusClass %>"
+                    data-order-status
+                    data-status="<%= order.status %>"
+                  >
+                    <%= order.statusLabel %>
+                  </span>
+                </td>
+                <td class="cell-muted"><%= order.updatedAtFormatted %></td>
+                <td>
+                  <a class="btn btn-ghost btn-sm" href="/orders/<%= order.id %>/qr">Abrir</a>
+                </td>
+                <td>
+                  <div class="action-row">
+                    <% if (order.status !== 'preparing') { %>
+                      <form method="post" action="/orders/<%= order.id %>/status">
+                        <input type="hidden" name="status" value="preparing" />
+                        <button class="btn btn-secondary btn-sm" type="submit">Em preparo</button>
+                      </form>
+                    <% } %>
+                    <% if (order.status !== 'ready') { %>
+                      <form method="post" action="/orders/<%= order.id %>/status">
+                        <input type="hidden" name="status" value="ready" />
+                        <button class="btn btn-primary btn-sm" type="submit">Pronto</button>
+                      </form>
+                    <% } %>
+                    <% if (order.status !== 'delivered') { %>
+                      <form method="post" action="/orders/<%= order.id %>/status">
+                        <input type="hidden" name="status" value="delivered" />
+                        <button class="btn btn-ghost btn-sm" type="submit">Entregue</button>
+                      </form>
+                    <% } %>
+                  </div>
+                </td>
+              </tr>
+            <% }) %>
+          </tbody>
+        </table>
+      </div>
+    <% } %>
+  </section>
+</main>
+
+<% if (realtimeTransport === 'socket') { %>
+  <script src="/socket.io/socket.io.js"></script>
+<% } %>
+<script src="/dashboard.js"></script>
+<%- include('partials/footer') %>

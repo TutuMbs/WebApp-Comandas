@@ -1,0 +1,48 @@
+<%- include('partials/head', { pageTitle, bodyClass: 'app-page' }) %>
+<header class="topbar">
+  <div class="brand-wrap">
+    <a class="brand" href="/dashboard">
+      <span class="brand-mark">CQ</span>
+      <span>
+        <strong>Comandas QR</strong>
+        <small><%= authUser.establishment_name %></small>
+      </span>
+    </a>
+  </div>
+
+  <nav class="topnav">
+    <a class="nav-link" href="/dashboard">Ativas</a>
+    <a class="nav-link" href="/history">Histórico</a>
+    <form action="/logout" method="post">
+      <button class="btn btn-ghost" type="submit">Sair</button>
+    </form>
+  </nav>
+</header>
+
+<main class="app-shell qr-shell">
+  <section class="panel qr-panel">
+    <div class="qr-copy">
+      <div class="eyebrow">Nova comanda</div>
+      <h1><%= order.numberLabel %></h1>
+      <p class="lede">Compartilhe este QR com o cliente. Ele abre a página pública da comanda e recebe o aviso em tempo real.</p>
+
+      <div class="detail-list">
+        <div><span>Cliente</span><strong><%= order.customerName %></strong></div>
+        <div><span>Itens</span><strong><%= order.items %></strong></div>
+        <div><span>URL pública</span><strong><a href="<%= order.publicUrl %>" target="_blank" rel="noreferrer"><%= order.publicUrl %></a></strong></div>
+      </div>
+
+      <div class="action-row">
+        <a class="btn btn-secondary" href="/dashboard">Voltar</a>
+        <a class="btn btn-primary" href="<%= order.publicUrl %>" target="_blank" rel="noreferrer">Abrir tela do cliente</a>
+        <button class="btn btn-ghost" type="button" onclick="window.print()">Imprimir</button>
+      </div>
+    </div>
+
+    <div class="qr-card">
+      <img src="<%= qrDataUrl %>" alt="QR Code da comanda <%= order.numberLabel %>" class="qr-image" />
+      <div class="qr-caption"><%= order.numberLabel %></div>
+    </div>
+  </section>
+</main>
+<%- include('partials/footer') %>
