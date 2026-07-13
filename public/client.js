@@ -56,9 +56,56 @@
     }
   }
 
+  function setHint(message) {
+    if (hint) {
+      hint.textContent = message;
+    }
+  }
+
+  function setSoundButtonActive() {
+    if (soundButton) {
+      soundButton.textContent = 'Aviso ativado';
+      soundButton.classList.remove('btn-primary');
+      soundButton.classList.add('btn-secondary');
+    }
+  }
+
+  function getNotificationSupportMessage() {
+    if (!('Notification' in window)) {
+      return 'Seu Safari nao permite notificacao nesta tela, mas o aviso sonoro fica ativo com esta pagina aberta.';
+    }
+
+    if (!window.isSecureContext) {
+      return 'Para mostrar alerta do sistema, abra esta pagina em HTTPS. O aviso sonoro fica ativo com esta tela aberta.';
+    }
+
+    if (Notification.permission === 'denied') {
+      return 'Notificacoes estao bloqueadas no navegador. O aviso sonoro fica ativo com esta tela aberta.';
+    }
+
+    return '';
+  }
+
+  function requestNotificationPermission() {
+    if (!('Notification' in window) || !window.isSecureContext || Notification.permission !== 'default') {
+      return Promise.resolve('Notification' in window ? Notification.permission : 'unsupported');
+    }
+
+    try {
+      return Notification.requestPermission();
+    } catch {
+      return Promise.resolve('unsupported');
+    }
+  }
+
   async function ensureAudio() {
+    const AudioContextConstructor = window.AudioContext || window.webkitAudioContext;
+    if (!AudioContextConstructor) {
+      throw new Error('AudioContext unavailable');
+    }
+
     if (!audioContext) {
-      audioContext = new (window.AudioContext || window.webkitAudioContext)();
+      audioContext = new AudioContextConstructor();
     }
 
     if (audioContext.state === 'suspended') {
@@ -66,14 +113,8 @@
     }
 
     audioReady = true;
-    if (hint) {
-      hint.textContent = 'Aviso sonoro ativado. Você será notificado quando a comanda ficar pronta.';
-    }
-    if (soundButton) {
-      soundButton.textContent = 'Aviso ativado';
-      soundButton.classList.remove('btn-primary');
-      soundButton.classList.add('btn-secondary');
-    }
+    setSoundButtonActive();
+    setHint('Aviso sonoro ativado. Mantenha esta tela aberta para ouvir quando a comanda ficar pronta.');
 
     if (latestKnownStatus === 'ready' && !readyAlertPlayed) {
       alertReady();
@@ -167,6 +208,7 @@
         // ignore notification failures
       }
     }
+    setHint('Comanda pronta. Pode retirar seu pedido.');
   }
 
   async function syncOrder() {
@@ -194,12 +236,17 @@
         latestKnownStatus = order.status;
       }
 
-      if (order.status === 'ready' && previousStatus !== 'ready' && alertArmed && !readyAlertPlayed) {
+      if (order.status === 'ready' && previousStatus !== 'ready' && alertArmed && audioReady && !readyAlertPlayed) {
         alertReady();
+      } else if (order.status === 'ready' && previousStatus !== 'ready' && !readyAlertPlayed) {
+        if (soundButton) {
+          soundButton.textContent = 'Tocar alerta';
+        }
+        setHint('A comanda ficou pronta. Toque no botao para liberar o som agora.');
       }
 
       if (order.status === 'delivered' && hint) {
-        hint.textContent = 'Pedido entregue. Você pode fechar esta tela.';
+        setHint('Pedido entregue. Você pode fechar esta tela.');
       }
     } catch {
       // keep the page working even if the sync request fails
@@ -207,17 +254,29 @@
   }
 
   if (soundButton) {
-    soundButton.addEventListener('click', async () => {
-      await ensureAudio();
+    soundButton.addEventListener('click', () => {
       alertArmed = true;
-      if ('Notification' in window && Notification.permission === 'default') {
-        try {
-          await Notification.requestPermission();
-        } catch {
-          // ignore permission errors
-        }
-      }
-      playTestBeep();
+
+      const notificationPermission = requestNotificationPermission();
+      ensureAudio()
+        .then(() => {
+          playTestBeep();
+          return notificationPermission;
+        })
+        .then((permission) => {
+          if (permission === 'granted') {
+            setHint('Aviso sonoro e notificacao ativados. Mantenha esta tela aberta ate o pedido ficar pronto.');
+            return;
+          }
+
+          const supportMessage = getNotificationSupportMessage();
+          if (supportMessage) {
+            setHint(supportMessage);
+          }
+        })
+        .catch(() => {
+          setHint('Nao foi possivel ativar o som neste navegador. Deixe a tela aberta para ver o status atualizar.');
+        });
     });
   }
 
@@ -235,12 +294,15 @@
         if (audioReady && alertArmed && !readyAlertPlayed) {
           alertReady();
         } else if (hint) {
-          hint.textContent = 'A comanda ficou pronta. Toque em "Ativar aviso sonoro" para ouvir o proximo alerta.';
+          if (soundButton) {
+            soundButton.textContent = 'Tocar alerta';
+          }
+          setHint('A comanda ficou pronta. Toque no botao para liberar o som agora.');
         }
       }
 
       if (order.status === 'delivered' && hint) {
-        hint.textContent = 'Pedido entregue. Voce pode fechar esta tela.';
+        setHint('Pedido entregue. Voce pode fechar esta tela.');
       }
     });
   }
