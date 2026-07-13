@@ -601,15 +601,24 @@ function parseCookies(cookieHeader) {
   }, {});
 }
 
-initDb()
-  .then(() => {
-    server.listen(PORT, () => {
-      console.log(
-        `Comandas QR rodando em ${BASE_URL} usando ${usingSupabase ? 'Supabase' : 'banco desconhecido'} com realtime ${REALTIME_TRANSPORT}`,
-      );
-    });
-  })
-  .catch((error) => {
+async function startLocalServer() {
+  await initDb();
+  server.listen(PORT, () => {
+    console.log(
+      `Comandas QR rodando em ${BASE_URL} usando ${usingSupabase ? 'Supabase' : 'banco desconhecido'} com realtime ${REALTIME_TRANSPORT}`,
+    );
+  });
+}
+
+if (require.main === module) {
+  startLocalServer().catch((error) => {
     console.error('Falha ao iniciar o banco de dados:', error);
     process.exit(1);
   });
+}
+
+module.exports = {
+  app,
+  server,
+  startLocalServer,
+};
