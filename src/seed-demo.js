@@ -2,10 +2,11 @@ require('dotenv').config();
 
 const bcrypt = require('bcryptjs');
 
-const { supabase, initDb } = require('./db');
+const { getSupabaseClient, initDb } = require('./db');
 
 async function main() {
   await initDb();
+  const supabase = getSupabaseClient();
   const passwordHash = await bcrypt.hash('Demo1234!', 12);
   const now = new Date().toISOString();
   const orders = [

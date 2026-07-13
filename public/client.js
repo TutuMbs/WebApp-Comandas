@@ -17,6 +17,7 @@
   let latestKnownStatus = badge?.dataset.status || null;
   let alertArmed = false;
   let readyAlertPlayed = false;
+  let activeAlertNodes = null;
 
   if (socket) {
     socket.emit('join-order', { orderId });
@@ -41,9 +42,17 @@
     ring.classList.add(`status-${status}`);
   }
 
-  function vibrate() {
+  function vibrate(durationMs = 5000) {
     if (navigator.vibrate) {
-      navigator.vibrate([250, 120, 250, 120, 420]);
+      const pattern = [];
+      let elapsed = 0;
+
+      while (elapsed < durationMs) {
+        pattern.push(350, 150);
+        elapsed += 500;
+      }
+
+      navigator.vibrate(pattern);
     }
   }
 
@@ -71,30 +80,84 @@
     }
   }
 
-  function beep() {
+  function stopAlertSound() {
+    if (!activeAlertNodes) {
+      return;
+    }
+
+    const { oscillator, gain } = activeAlertNodes;
+    try {
+      gain.gain.cancelScheduledValues(audioContext.currentTime);
+      gain.gain.setValueAtTime(gain.gain.value || 0.0001, audioContext.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.0001, audioContext.currentTime + 0.08);
+      oscillator.stop(audioContext.currentTime + 0.1);
+    } catch {
+      // ignore stop errors if the oscillator already ended
+    }
+    activeAlertNodes = null;
+  }
+
+  function playAlertSound(durationMs = 5000) {
     if (!audioReady || !audioContext) {
       return;
     }
 
+    stopAlertSound();
+
+    const now = audioContext.currentTime;
+    const durationSeconds = durationMs / 1000;
+    const oscillator = audioContext.createOscillator();
+    const gain = audioContext.createGain();
+
+    oscillator.type = 'triangle';
+    oscillator.frequency.setValueAtTime(760, now);
+
+    for (let time = 0; time <= durationSeconds; time += 0.45) {
+      oscillator.frequency.setValueAtTime(time % 0.9 === 0 ? 980 : 760, now + time);
+    }
+
+    gain.gain.setValueAtTime(0.0001, now);
+    gain.gain.exponentialRampToValueAtTime(0.26, now + 0.04);
+    gain.gain.setValueAtTime(0.26, now + durationSeconds - 0.16);
+    gain.gain.exponentialRampToValueAtTime(0.0001, now + durationSeconds);
+
+    oscillator.connect(gain);
+    gain.connect(audioContext.destination);
+    activeAlertNodes = { oscillator, gain };
+    oscillator.start();
+    oscillator.stop(now + durationSeconds);
+    oscillator.addEventListener('ended', () => {
+      if (activeAlertNodes?.oscillator === oscillator) {
+        activeAlertNodes = null;
+      }
+    });
+  }
+
+  function playTestBeep() {
+    if (!audioReady || !audioContext) {
+      return;
+    }
+
+    const now = audioContext.currentTime;
     const oscillator = audioContext.createOscillator();
     const gain = audioContext.createGain();
     oscillator.type = 'sine';
-    oscillator.frequency.setValueAtTime(880, audioContext.currentTime);
-    gain.gain.setValueAtTime(0.0001, audioContext.currentTime);
-    gain.gain.exponentialRampToValueAtTime(0.22, audioContext.currentTime + 0.02);
-    gain.gain.exponentialRampToValueAtTime(0.0001, audioContext.currentTime + 0.7);
+    oscillator.frequency.setValueAtTime(880, now);
+    gain.gain.setValueAtTime(0.0001, now);
+    gain.gain.exponentialRampToValueAtTime(0.16, now + 0.02);
+    gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.35);
     oscillator.connect(gain);
     gain.connect(audioContext.destination);
     oscillator.start();
-    oscillator.stop(audioContext.currentTime + 0.75);
+    oscillator.stop(now + 0.38);
   }
 
   function alertReady() {
     readyAlertPlayed = true;
     document.body.classList.add('is-pulsing');
-    setTimeout(() => document.body.classList.remove('is-pulsing'), 1600);
-    vibrate();
-    beep();
+    setTimeout(() => document.body.classList.remove('is-pulsing'), 5000);
+    vibrate(5000);
+    playAlertSound(5000);
     if ('Notification' in window && Notification.permission === 'granted') {
       try {
         new Notification('Pedido pronto', {
@@ -154,7 +217,7 @@
           // ignore permission errors
         }
       }
-      beep();
+      playTestBeep();
     });
   }
 

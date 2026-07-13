@@ -13,6 +13,7 @@ const QRCode = require('qrcode');
 const {
   initDb,
   usingSupabase,
+  getSupabaseConfig,
   createOrder,
   createUser,
   findUserByEmail,
@@ -68,6 +69,18 @@ app.use((req, res, next) => {
   res.locals.baseUrl = getBaseUrl(req);
   res.locals.realtimeTransport = REALTIME_TRANSPORT;
   next();
+});
+
+app.get('/health', (req, res) => {
+  const supabaseConfig = getSupabaseConfig();
+  return res.json({
+    ok: true,
+    runtime: process.env.VERCEL ? 'vercel' : 'local',
+    realtimeTransport: REALTIME_TRANSPORT,
+    supabaseConfigured: supabaseConfig.isConfigured,
+    hasSupabaseUrl: Boolean(supabaseConfig.supabaseUrl),
+    hasSupabaseSecretKey: Boolean(supabaseConfig.supabaseSecretKey),
+  });
 });
 
 function getBaseUrl(req) {
@@ -571,6 +584,28 @@ app.use((req, res) => {
     pageTitle: 'Página não encontrada',
     message: 'A página solicitada não existe.',
     backUrl: req.authUser ? '/dashboard' : '/login',
+  });
+});
+
+app.use((error, req, res, next) => {
+  console.error('Erro na aplicacao:', error);
+
+  if (res.headersSent) {
+    return next(error);
+  }
+
+  const acceptsJson = req.accepts(['html', 'json']) === 'json' || req.path.startsWith('/api/');
+  if (acceptsJson) {
+    return res.status(500).json({
+      error: 'internal_server_error',
+      message: error.message || 'Erro interno do servidor.',
+    });
+  }
+
+  return res.status(500).render('not-found', {
+    pageTitle: 'Erro interno',
+    message: error.message || 'Erro interno do servidor.',
+    backUrl: '/',
   });
 });
 

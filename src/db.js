@@ -1,28 +1,46 @@
 const { createClient } = require('@supabase/supabase-js');
 
-const supabaseUrl = process.env.SUPABASE_URL || null;
-const supabaseSecretKey = process.env.SUPABASE_SECRET_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY || null;
+let supabaseClient = null;
 
-if (!supabaseUrl) {
-  throw new Error('SUPABASE_URL nao configurada. Defina a URL do projeto Supabase para iniciar o app.');
+function getSupabaseConfig() {
+  const supabaseUrl = process.env.SUPABASE_URL || null;
+  const supabaseSecretKey = process.env.SUPABASE_SECRET_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY || null;
+
+  return {
+    supabaseUrl,
+    supabaseSecretKey,
+    isConfigured: Boolean(supabaseUrl && supabaseSecretKey),
+  };
 }
 
-if (!supabaseSecretKey) {
-  throw new Error(
-    'SUPABASE_SECRET_KEY nao configurada. Defina a secret key do projeto Supabase para iniciar o app.',
-  );
-}
+function getSupabaseClient() {
+  const { supabaseUrl, supabaseSecretKey } = getSupabaseConfig();
 
-const supabase = createClient(supabaseUrl, supabaseSecretKey, {
-  auth: {
-    persistSession: false,
-    autoRefreshToken: false,
-    detectSessionInUrl: false,
-  },
-});
+  if (!supabaseUrl) {
+    throw new Error('SUPABASE_URL nao configurada. Defina a URL do projeto Supabase nas variaveis da Vercel.');
+  }
+
+  if (!supabaseSecretKey) {
+    throw new Error(
+      'SUPABASE_SECRET_KEY nao configurada. Defina a secret key do projeto Supabase nas variaveis da Vercel.',
+    );
+  }
+
+  if (!supabaseClient) {
+    supabaseClient = createClient(supabaseUrl, supabaseSecretKey, {
+      auth: {
+        persistSession: false,
+        autoRefreshToken: false,
+        detectSessionInUrl: false,
+      },
+    });
+  }
+
+  return supabaseClient;
+}
 
 async function initDb() {
-  return Promise.resolve();
+  getSupabaseClient();
 }
 
 function normalizeDbOrder(row) {
@@ -64,6 +82,7 @@ async function ensureNoError(result, context) {
 
 async function findUserByEmail(email) {
   await initDb();
+  const supabase = getSupabaseClient();
   const result = await supabase
     .from('users')
     .select('*')
@@ -77,6 +96,7 @@ async function findUserByEmail(email) {
 
 async function findUserById(id) {
   await initDb();
+  const supabase = getSupabaseClient();
   const result = await supabase.from('users').select('*').eq('id', id).limit(1).maybeSingle();
   await ensureNoError(result, 'Falha ao buscar usuario por id');
   return normalizeDbUser(result.data);
@@ -84,6 +104,7 @@ async function findUserById(id) {
 
 async function createUser({ establishmentName, email, passwordHash }) {
   await initDb();
+  const supabase = getSupabaseClient();
   const result = await supabase
     .from('users')
     .insert({
@@ -100,6 +121,7 @@ async function createUser({ establishmentName, email, passwordHash }) {
 
 async function setPasswordResetToken(userId, tokenHash, expiresAt) {
   await initDb();
+  const supabase = getSupabaseClient();
   const result = await supabase
     .from('users')
     .update({
@@ -113,6 +135,7 @@ async function setPasswordResetToken(userId, tokenHash, expiresAt) {
 
 async function findUserByResetTokenHash(tokenHash) {
   await initDb();
+  const supabase = getSupabaseClient();
   const result = await supabase
     .from('users')
     .select('*')
@@ -127,6 +150,7 @@ async function findUserByResetTokenHash(tokenHash) {
 
 async function clearPasswordResetToken(userId) {
   await initDb();
+  const supabase = getSupabaseClient();
   const result = await supabase
     .from('users')
     .update({
@@ -140,6 +164,7 @@ async function clearPasswordResetToken(userId) {
 
 async function updatePassword(userId, passwordHash) {
   await initDb();
+  const supabase = getSupabaseClient();
   const result = await supabase
     .from('users')
     .update({
@@ -154,6 +179,7 @@ async function updatePassword(userId, passwordHash) {
 
 async function getOrderById(orderId) {
   await initDb();
+  const supabase = getSupabaseClient();
   const result = await supabase
     .from('orders')
     .select('*, users!inner(establishment_name)')
@@ -174,6 +200,7 @@ async function getOrderById(orderId) {
 
 async function getOrderByIdForUser(orderId, userId) {
   await initDb();
+  const supabase = getSupabaseClient();
   const result = await supabase
     .from('orders')
     .select('*, users!inner(establishment_name)')
@@ -195,6 +222,7 @@ async function getOrderByIdForUser(orderId, userId) {
 
 async function createOrder(userId, payload = {}) {
   await initDb();
+  const supabase = getSupabaseClient();
   const result = await supabase.rpc('create_order', {
     p_user_id: Number(userId),
     p_customer_name: payload.customerName?.trim() || null,
@@ -214,6 +242,7 @@ async function createOrder(userId, payload = {}) {
 
 async function listOrders(userId, filters = {}) {
   await initDb();
+  const supabase = getSupabaseClient();
   let query = supabase
     .from('orders')
     .select('*, users!inner(establishment_name)')
@@ -256,6 +285,7 @@ async function listDeliveredOrders(userId, filters = {}) {
 
 async function updateOrderStatus(orderId, userId, status) {
   await initDb();
+  const supabase = getSupabaseClient();
   const now = new Date().toISOString();
   const result = await supabase
     .from('orders')
@@ -278,7 +308,8 @@ async function updateOrderStatus(orderId, userId, status) {
 }
 
 module.exports = {
-  supabase,
+  getSupabaseClient,
+  getSupabaseConfig,
   usingSupabase: true,
   initDb,
   createOrder,
