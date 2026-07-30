@@ -43,6 +43,7 @@ const STATUS_META = {
   delivered: { label: 'Entregue', className: 'status-delivered' },
 };
 
+const DISPLAY_TIME_ZONE = 'America/Sao_Paulo';
 const PORT = Number(process.env.PORT || 3000);
 const BASE_URL = process.env.PUBLIC_BASE_URL || `http://localhost:${PORT}`;
 const REALTIME_TRANSPORT = process.env.REALTIME_TRANSPORT || (process.env.VERCEL ? 'polling' : 'socket');
@@ -118,6 +119,7 @@ function formatDateTime(value) {
   return new Intl.DateTimeFormat('pt-BR', {
     dateStyle: 'short',
     timeStyle: 'short',
+    timeZone: DISPLAY_TIME_ZONE,
   }).format(new Date(value));
 }
 
@@ -128,6 +130,7 @@ function formatTime(value) {
 
   return new Intl.DateTimeFormat('pt-BR', {
     timeStyle: 'short',
+    timeZone: DISPLAY_TIME_ZONE,
   }).format(new Date(value));
 }
 
