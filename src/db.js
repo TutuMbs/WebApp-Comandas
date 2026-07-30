@@ -438,10 +438,11 @@ async function resendOrderAlert(orderId, userId) {
 
   const supabase = getSupabaseClient();
   const now = new Date().toISOString();
-  const result = await supabase
+  let nextAlertRevision = Number(order.alert_revision || 0) + 1;
+  let result = await supabase
     .from('orders')
     .update({
-      alert_revision: Number(order.alert_revision || 0) + 1,
+      alert_revision: nextAlertRevision,
       updated_at: now,
     })
     .eq('id', orderId)
@@ -449,12 +450,30 @@ async function resendOrderAlert(orderId, userId) {
     .select('id')
     .limit(1);
 
+  if (result.error && /alert_revision/.test(result.error.message || '')) {
+    nextAlertRevision = Date.now();
+    result = await supabase
+      .from('orders')
+      .update({
+        updated_at: now,
+      })
+      .eq('id', orderId)
+      .eq('user_id', userId)
+      .select('id')
+      .limit(1);
+  }
+
   await ensureNoError(result, 'Falha ao reenviar aviso da comanda');
   if (!result.data || result.data.length === 0) {
     return null;
   }
 
-  return getOrderByIdForUser(orderId, userId);
+  const updatedOrder = await getOrderByIdForUser(orderId, userId);
+  if (updatedOrder) {
+    updatedOrder.alert_revision = nextAlertRevision;
+  }
+
+  return updatedOrder;
 }
 
 module.exports = {

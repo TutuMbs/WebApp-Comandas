@@ -114,7 +114,7 @@
 
     soundReady = true;
     updateSoundButtons();
-    playPanelSound({ soft: true });
+    playPanelSound({ test: true });
     return true;
   }
 
@@ -123,21 +123,30 @@
       return;
     }
 
-    const now = audioContext.currentTime;
-    const volume = options.soft ? 0.08 : 0.22;
-    [0, 0.22, 0.44].forEach((offset, index) => {
-      const oscillator = audioContext.createOscillator();
-      const gain = audioContext.createGain();
-      oscillator.type = 'sine';
-      oscillator.frequency.setValueAtTime(index % 2 === 0 ? 880 : 1175, now + offset);
-      gain.gain.setValueAtTime(0.0001, now + offset);
-      gain.gain.exponentialRampToValueAtTime(volume, now + offset + 0.02);
-      gain.gain.exponentialRampToValueAtTime(0.0001, now + offset + 0.18);
-      oscillator.connect(gain);
-      gain.connect(audioContext.destination);
-      oscillator.start(now + offset);
-      oscillator.stop(now + offset + 0.2);
-    });
+    const scheduleSound = () => {
+      const now = audioContext.currentTime;
+      const volume = options.test ? 0.16 : 0.32;
+      [0, 0.24, 0.48, 0.72].forEach((offset, index) => {
+        const oscillator = audioContext.createOscillator();
+        const gain = audioContext.createGain();
+        oscillator.type = 'square';
+        oscillator.frequency.setValueAtTime(index % 2 === 0 ? 740 : 988, now + offset);
+        gain.gain.setValueAtTime(0.0001, now + offset);
+        gain.gain.exponentialRampToValueAtTime(volume, now + offset + 0.025);
+        gain.gain.exponentialRampToValueAtTime(0.0001, now + offset + 0.2);
+        oscillator.connect(gain);
+        gain.connect(audioContext.destination);
+        oscillator.start(now + offset);
+        oscillator.stop(now + offset + 0.22);
+      });
+    };
+
+    if (audioContext.state === 'suspended') {
+      audioContext.resume().then(scheduleSound).catch(() => {});
+      return;
+    }
+
+    scheduleSound();
   }
 
   function renderList(status, orders) {
@@ -284,8 +293,13 @@
     button.textContent = 'Reenviando...';
 
     try {
+      if (!soundReady) {
+        await enableSound();
+      }
+
       const response = await fetch(`/orders/${orderId}/notify`, {
         method: 'POST',
+        credentials: 'same-origin',
         headers: {
           Accept: 'application/json',
           'X-Requested-With': 'fetch',
