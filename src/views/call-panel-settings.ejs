@@ -1,0 +1,56 @@
+<%- include('partials/head', { pageTitle, bodyClass: 'app-page call-panel-page' }) %>
+<header class="topbar">
+  <div class="brand-wrap">
+    <a class="brand" href="/dashboard">
+      <span class="brand-mark">CQ</span>
+      <span>
+        <strong>Comandas QR</strong>
+        <small><%= authUser.establishment_name %></small>
+      </span>
+    </a>
+  </div>
+
+  <nav class="topnav">
+    <a class="nav-link" href="/dashboard">Ativas</a>
+    <a class="nav-link" href="/painel">Painel</a>
+    <a class="nav-link is-active" href="/painel/configuracoes">Configurações</a>
+    <a class="nav-link" href="/history">Histórico</a>
+    <form action="/logout" method="post">
+      <button class="btn btn-ghost" type="submit">Sair</button>
+    </form>
+  </nav>
+</header>
+
+<main class="app-shell settings-shell">
+  <section class="hero-panel slim">
+    <div>
+      <div class="eyebrow">Configurações</div>
+      <h1>Painel de chamadas.</h1>
+      <p class="lede">Ajustes salvos neste navegador para a tela usada no monitor.</p>
+    </div>
+  </section>
+
+  <section class="panel settings-page-panel">
+    <div class="panel-head">
+      <div>
+        <div class="eyebrow">Alerta</div>
+        <h2>Pedido pronto</h2>
+      </div>
+    </div>
+
+    <label>
+      <span>Duração do alerta em segundos</span>
+      <input data-alert-duration type="number" min="1" max="30" step="1" value="3" />
+    </label>
+
+    <div class="settings-save-state" data-settings-save-state>Salvo automaticamente</div>
+
+    <div class="action-row">
+      <a class="btn btn-secondary" href="/painel">Voltar ao painel</a>
+      <a class="btn btn-primary" href="/painel/tela-cheia" data-open-fullscreen>Abrir tela cheia</a>
+    </div>
+  </section>
+</main>
+
+<script src="/call-panel.js"></script>
+<%- include('partials/footer') %>

@@ -18,6 +18,8 @@ async function main() {
       status: 'awaiting',
       createdAt: '2026-07-11T12:00:00.000Z',
       updatedAt: '2026-07-11T12:00:00.000Z',
+      preparingAt: null,
+      readyAt: null,
       deliveredAt: null,
     },
     {
@@ -28,6 +30,8 @@ async function main() {
       status: 'preparing',
       createdAt: '2026-07-11T12:05:00.000Z',
       updatedAt: '2026-07-11T12:08:00.000Z',
+      preparingAt: '2026-07-11T12:08:00.000Z',
+      readyAt: null,
       deliveredAt: null,
     },
     {
@@ -38,6 +42,8 @@ async function main() {
       status: 'ready',
       createdAt: '2026-07-11T12:10:00.000Z',
       updatedAt: '2026-07-11T12:14:00.000Z',
+      preparingAt: '2026-07-11T12:12:00.000Z',
+      readyAt: '2026-07-11T12:14:00.000Z',
       deliveredAt: null,
     },
     {
@@ -48,6 +54,8 @@ async function main() {
       status: 'delivered',
       createdAt: '2026-07-11T11:40:00.000Z',
       updatedAt: '2026-07-11T11:55:00.000Z',
+      preparingAt: '2026-07-11T11:45:00.000Z',
+      readyAt: '2026-07-11T11:52:00.000Z',
       deliveredAt: '2026-07-11T11:55:00.000Z',
     },
   ];
@@ -89,6 +97,8 @@ async function main() {
       status: order.status,
       created_at: order.createdAt,
       updated_at: order.updatedAt,
+      preparing_at: order.preparingAt,
+      ready_at: order.readyAt,
       delivered_at: order.deliveredAt,
     })),
   );

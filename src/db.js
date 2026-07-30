@@ -53,8 +53,11 @@ function normalizeDbOrder(row) {
     id: String(row.id),
     user_id: Number(row.user_id),
     number: Number(row.number),
+    alert_revision: Number(row.alert_revision || 0),
     created_at: row.created_at ? String(row.created_at) : null,
     updated_at: row.updated_at ? String(row.updated_at) : null,
+    preparing_at: row.preparing_at ? String(row.preparing_at) : null,
+    ready_at: row.ready_at ? String(row.ready_at) : null,
     delivered_at: row.delivered_at ? String(row.delivered_at) : null,
   };
 }
@@ -287,19 +290,67 @@ async function updateOrderStatus(orderId, userId, status) {
   await initDb();
   const supabase = getSupabaseClient();
   const now = new Date().toISOString();
+
+  const payload = {
+    status,
+    updated_at: now,
+    delivered_at: status === 'delivered' ? now : null,
+  };
+  if (status === 'preparing') {
+    payload.preparing_at = now;
+  }
+  if (status === 'ready') {
+    payload.ready_at = now;
+  }
+
+  let result = await supabase
+    .from('orders')
+    .update(payload)
+    .eq('id', orderId)
+    .eq('user_id', userId)
+    .select('id')
+    .limit(1);
+
+  if (result.error && /preparing_at|ready_at/.test(result.error.message || '')) {
+    delete payload.preparing_at;
+    delete payload.ready_at;
+    result = await supabase
+      .from('orders')
+      .update(payload)
+      .eq('id', orderId)
+      .eq('user_id', userId)
+      .select('id')
+      .limit(1);
+  }
+
+  await ensureNoError(result, 'Falha ao atualizar status da comanda');
+  if (!result.data || result.data.length === 0) {
+    return null;
+  }
+
+  return getOrderByIdForUser(orderId, userId);
+}
+
+async function resendOrderAlert(orderId, userId) {
+  const order = await getOrderByIdForUser(orderId, userId);
+  if (!order) {
+    return null;
+  }
+
+  const supabase = getSupabaseClient();
+  const now = new Date().toISOString();
   const result = await supabase
     .from('orders')
     .update({
-      status,
+      alert_revision: Number(order.alert_revision || 0) + 1,
       updated_at: now,
-      delivered_at: status === 'delivered' ? now : null,
     })
     .eq('id', orderId)
     .eq('user_id', userId)
     .select('id')
     .limit(1);
 
-  await ensureNoError(result, 'Falha ao atualizar status da comanda');
+  await ensureNoError(result, 'Falha ao reenviar aviso da comanda');
   if (!result.data || result.data.length === 0) {
     return null;
   }
@@ -323,6 +374,7 @@ module.exports = {
   listOrders,
   setPasswordResetToken,
   clearPasswordResetToken,
+  resendOrderAlert,
   updateOrderStatus,
   updatePassword,
 };

@@ -12,6 +12,7 @@
 
   <nav class="topnav">
     <a class="nav-link" href="/dashboard">Ativas</a>
+    <a class="nav-link" href="/painel">Painel</a>
     <a class="nav-link" href="/history">Histórico</a>
     <form action="/logout" method="post">
       <button class="btn btn-ghost" type="submit">Sair</button>
@@ -117,7 +118,7 @@
               <th>Cliente</th>
               <th>Itens</th>
               <th>Status</th>
-              <th>Atualizado</th>
+              <th>Horários</th>
               <th>QR</th>
               <th>Ações</th>
             </tr>
@@ -134,7 +135,7 @@
               <th>Cliente</th>
               <th>Itens</th>
               <th>Status</th>
-              <th>Atualizado</th>
+              <th>Horários</th>
               <th>QR</th>
               <th>Ações</th>
             </tr>
@@ -160,7 +161,13 @@
                     <%= order.statusLabel %>
                   </span>
                 </td>
-	                <td class="cell-muted" data-order-updated><%= order.updatedAtFormatted %></td>
+	                <td class="cell-muted">
+                    <div class="time-stack" data-order-times>
+                      <span>Pedido <strong><%= order.createdAtTime %></strong></span>
+                      <span>Preparo <strong><%= order.preparingAtTime %></strong></span>
+                      <span>Pronto <strong><%= order.readyAtTime %></strong></span>
+                    </div>
+                  </td>
 	                <td>
 	                  <a class="btn btn-ghost btn-sm" href="/orders/<%= order.id %>/qr" data-order-qr>Abrir</a>
 	                </td>
@@ -178,13 +185,18 @@
                         <button class="btn btn-primary btn-sm" type="submit">Pronto</button>
                       </form>
                     <% } %>
-                    <% if (order.status !== 'delivered') { %>
-                      <form method="post" action="/orders/<%= order.id %>/status">
-                        <input type="hidden" name="status" value="delivered" />
-                        <button class="btn btn-ghost btn-sm" type="submit">Entregue</button>
-                      </form>
-                    <% } %>
-                  </div>
+	                    <% if (order.status !== 'delivered') { %>
+	                      <form method="post" action="/orders/<%= order.id %>/status">
+	                        <input type="hidden" name="status" value="delivered" />
+	                        <button class="btn btn-ghost btn-sm" type="submit">Entregue</button>
+	                      </form>
+	                    <% } %>
+	                    <% if (order.status === 'ready') { %>
+	                      <form method="post" action="/orders/<%= order.id %>/notify" data-notify-form>
+	                        <button class="btn btn-secondary btn-sm" type="submit">Reenviar aviso</button>
+	                      </form>
+	                    <% } %>
+	                  </div>
                 </td>
               </tr>
             <% }) %>

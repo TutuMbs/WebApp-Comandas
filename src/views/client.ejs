@@ -1,5 +1,5 @@
 <%- include('partials/head', { pageTitle, bodyClass: 'client-page' }) %>
-<main class="client-shell" data-order-id="<%= order.id %>">
+<main class="client-shell" data-order-id="<%= order.id %>" data-alert-revision="<%= order.alertRevision || 0 %>">
   <section class="client-hero">
     <div class="eyebrow">Acompanhamento da comanda</div>
     <h1><%= order.numberLabel %></h1>
@@ -23,8 +23,12 @@
         <strong><%= order.items %></strong>
       </div>
       <div>
-        <span>Atualizado em</span>
-        <strong><%= order.updatedAtFormatted %></strong>
+        <span>Horários</span>
+        <div class="client-time-stack" data-client-times>
+          <small>Pedido <strong><%= order.createdAtTime %></strong></small>
+          <small>Preparo <strong><%= order.preparingAtTime %></strong></small>
+          <small>Pronto <strong><%= order.readyAtTime %></strong></small>
+        </div>
       </div>
     </div>
 

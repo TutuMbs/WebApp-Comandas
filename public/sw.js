@@ -1,9 +1,13 @@
-const CACHE_NAME = 'comandas-qr-v2';
+const CACHE_NAME = 'comandas-qr-v7';
 const ASSETS = [
   '/',
   '/login',
+  '/painel',
+  '/painel/tela-cheia',
+  '/painel/configuracoes',
   '/styles.css',
   '/dashboard.js',
+  '/call-panel.js',
   '/client.js',
   '/manifest.json',
   '/icon.svg',

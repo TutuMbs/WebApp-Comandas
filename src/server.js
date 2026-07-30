@@ -21,6 +21,7 @@ const {
   getOrderByIdForUser,
   listDeliveredOrders,
   listOrders,
+  resendOrderAlert,
   setPasswordResetToken,
   updateOrderStatus,
   updatePassword,
@@ -85,7 +86,15 @@ app.get('/health', (req, res) => {
 
 function getBaseUrl(req) {
   if (process.env.PUBLIC_BASE_URL) {
-    return process.env.PUBLIC_BASE_URL.replace(/\/$/, '');
+    const configuredUrl = process.env.PUBLIC_BASE_URL.replace(/\/$/, '');
+    try {
+      const parsedUrl = new URL(configuredUrl);
+      if (parsedUrl.hostname !== 'vercel.com') {
+        return configuredUrl;
+      }
+    } catch {
+      // fall back to the current request host below
+    }
   }
 
   const proto = req.get('x-forwarded-proto') || req.protocol;
@@ -112,6 +121,16 @@ function formatDateTime(value) {
   }).format(new Date(value));
 }
 
+function formatTime(value) {
+  if (!value) {
+    return '-';
+  }
+
+  return new Intl.DateTimeFormat('pt-BR', {
+    timeStyle: 'short',
+  }).format(new Date(value));
+}
+
 function normalizeEmail(email) {
   return String(email || '').trim().toLowerCase();
 }
@@ -125,6 +144,10 @@ function getStatusClass(status) {
 }
 
 function serializeOrder(req, order) {
+  const effectivePreparingAt =
+    order.preparing_at || (['preparing', 'ready', 'delivered'].includes(order.status) ? order.updated_at : null);
+  const effectiveReadyAt = order.ready_at || (['ready', 'delivered'].includes(order.status) ? order.updated_at : null);
+
   return {
     id: order.id,
     userId: order.user_id,
@@ -137,13 +160,40 @@ function serializeOrder(req, order) {
     statusClass: getStatusClass(order.status),
     createdAt: order.created_at,
     updatedAt: order.updated_at,
+    preparingAt: effectivePreparingAt,
+    readyAt: effectiveReadyAt,
     deliveredAt: order.delivered_at || null,
+    alertRevision: Number(order.alert_revision || 0),
     publicUrl: getPublicOrderUrl(req, order.id),
   };
 }
 
+function serializeDisplayOrder(req, order) {
+  const effectivePreparingAt =
+    order.preparing_at || (['preparing', 'ready', 'delivered'].includes(order.status) ? order.updated_at : null);
+  const effectiveReadyAt = order.ready_at || (['ready', 'delivered'].includes(order.status) ? order.updated_at : null);
+
+  return {
+    ...serializeOrder(req, order),
+    customerName: order.customer_name || 'Sem nome',
+    items: order.items || 'Sem observações',
+    statusLabel: getStatusLabel(order.status),
+    statusClass: getStatusClass(order.status),
+    createdAtFormatted: formatDateTime(order.created_at),
+    createdAtTime: formatTime(order.created_at),
+    updatedAtFormatted: formatDateTime(order.updated_at),
+    updatedAtTime: formatTime(order.updated_at),
+    preparingAtFormatted: formatDateTime(effectivePreparingAt),
+    preparingAtTime: formatTime(effectivePreparingAt),
+    readyAtFormatted: formatDateTime(effectiveReadyAt),
+    readyAtTime: formatTime(effectiveReadyAt),
+    deliveredAtFormatted: formatDateTime(order.delivered_at),
+    deliveredAtTime: formatTime(order.delivered_at),
+  };
+}
+
 function emitOrderEvents(req, order, eventName) {
-  const payload = serializeOrder(req, order);
+  const payload = serializeDisplayOrder(req, order);
   io.to(`order:${order.id}`).emit(eventName, payload);
   io.to(`user:${order.user_id}`).emit(eventName, payload);
 }
@@ -177,18 +227,23 @@ async function renderDashboard(req, res, extra = {}) {
     activeCount,
     preparingCount,
     readyCount,
-    orders: orders.map((order) => ({
-      ...serializeOrder(req, order),
-      customerName: order.customer_name || 'Sem nome',
-      items: order.items || 'Sem observações',
-      statusLabel: getStatusLabel(order.status),
-      statusClass: getStatusClass(order.status),
-      createdAtFormatted: formatDateTime(order.created_at),
-      updatedAtFormatted: formatDateTime(order.updated_at),
-      deliveredAtFormatted: formatDateTime(order.delivered_at),
-    })),
+    orders: orders.map((order) => serializeDisplayOrder(req, order)),
     flash: extra.flash || null,
   });
+}
+
+async function buildCallPanelData(req) {
+  const orders = await listOrders(req.authUser.sub, {
+    activeOnly: true,
+  });
+
+  const panelOrders = orders.filter((order) => ['preparing', 'ready'].includes(order.status));
+
+  return {
+    orders: panelOrders,
+    preparingCount: panelOrders.filter((order) => order.status === 'preparing').length,
+    readyCount: panelOrders.filter((order) => order.status === 'ready').length,
+  };
 }
 
 async function buildDashboardData(req) {
@@ -425,20 +480,49 @@ app.get('/dashboard', requireAuth, async (req, res) => {
   return renderDashboard(req, res);
 });
 
+app.get('/painel', requireAuth, async (req, res) => {
+  const payload = await buildCallPanelData(req);
+
+  return res.render('call-panel', {
+    pageTitle: 'Painel de chamadas',
+    fullscreen: false,
+    preparingCount: payload.preparingCount,
+    readyCount: payload.readyCount,
+    orders: payload.orders.map((order) => serializeDisplayOrder(req, order)),
+  });
+});
+
+app.get('/painel/tela-cheia', requireAuth, async (req, res) => {
+  const payload = await buildCallPanelData(req);
+
+  return res.render('call-panel', {
+    pageTitle: 'Painel em tela cheia',
+    fullscreen: true,
+    preparingCount: payload.preparingCount,
+    readyCount: payload.readyCount,
+    orders: payload.orders.map((order) => serializeDisplayOrder(req, order)),
+  });
+});
+
+app.get('/painel/configuracoes', requireAuth, (req, res) => {
+  return res.render('call-panel-settings', {
+    pageTitle: 'Configurações do painel',
+  });
+});
+
 app.get('/api/dashboard', requireAuth, async (req, res) => {
   const payload = await buildDashboardData(req);
   return res.json({
     ...payload,
-    orders: payload.orders.map((order) => ({
-      ...serializeOrder(req, order),
-      customerName: order.customer_name || 'Sem nome',
-      items: order.items || 'Sem observações',
-      statusLabel: getStatusLabel(order.status),
-      statusClass: getStatusClass(order.status),
-      createdAtFormatted: formatDateTime(order.created_at),
-      updatedAtFormatted: formatDateTime(order.updated_at),
-      deliveredAtFormatted: formatDateTime(order.delivered_at),
-    })),
+    orders: payload.orders.map((order) => serializeDisplayOrder(req, order)),
+  });
+});
+
+app.get('/api/painel', requireAuth, async (req, res) => {
+  const payload = await buildCallPanelData(req);
+  return res.json({
+    ...payload,
+    orders: payload.orders.map((order) => serializeDisplayOrder(req, order)),
   });
 });
 
@@ -451,16 +535,7 @@ app.get('/history', requireAuth, async (req, res) => {
   return res.render('history', {
     pageTitle: 'Histórico',
     search,
-    orders: orders.map((order) => ({
-      ...serializeOrder(req, order),
-      customerName: order.customer_name || 'Sem nome',
-      items: order.items || 'Sem observações',
-      statusLabel: getStatusLabel(order.status),
-      statusClass: getStatusClass(order.status),
-      createdAtFormatted: formatDateTime(order.created_at),
-      updatedAtFormatted: formatDateTime(order.updated_at),
-      deliveredAtFormatted: formatDateTime(order.delivered_at),
-    })),
+    orders: orders.map((order) => serializeDisplayOrder(req, order)),
   });
 });
 
@@ -501,13 +576,7 @@ app.get('/orders/:id/qr', requireAuth, async (req, res) => {
 
   return res.render('order-qr', {
     pageTitle: 'QR da comanda',
-    order: {
-      ...serializeOrder(req, order),
-      customerName: order.customer_name || 'Sem nome',
-      items: order.items || 'Sem observações',
-      createdAtFormatted: formatDateTime(order.created_at),
-      updatedAtFormatted: formatDateTime(order.updated_at),
-    },
+    order: serializeDisplayOrder(req, order),
     qrDataUrl,
   });
 });
@@ -532,6 +601,25 @@ app.post('/orders/:id/status', requireAuth, async (req, res) => {
   return res.redirect(backUrl);
 });
 
+app.post('/orders/:id/notify', requireAuth, async (req, res) => {
+  const order = await resendOrderAlert(req.params.id, Number(req.authUser.sub));
+  if (!order) {
+    return res.status(404).render('not-found', {
+      pageTitle: 'Comanda não encontrada',
+      message: 'Não encontramos essa comanda no seu estabelecimento.',
+      backUrl: '/dashboard',
+    });
+  }
+
+  emitOrderEvents(req, order, 'order:alert');
+  if (req.accepts('json') && !req.accepts('html')) {
+    return res.json({ ok: true, order: serializeDisplayOrder(req, order) });
+  }
+
+  const backUrl = req.get('Referrer') || '/dashboard';
+  return res.redirect(backUrl);
+});
+
 app.get('/c/:id', async (req, res) => {
   const order = await findOrderByPublicId(req.params.id);
   if (!order) {
@@ -546,12 +634,7 @@ app.get('/c/:id', async (req, res) => {
   return res.render('client', {
     pageTitle: `Acompanhamento - ${formatOrderNumber(order.number)}`,
     order: {
-      ...serializeOrder(req, order),
-      customerName: order.customer_name || 'Sem nome',
-      items: order.items || 'Sem observações',
-      createdAtFormatted: formatDateTime(order.created_at),
-      updatedAtFormatted: formatDateTime(order.updated_at),
-      numberLabel: formatOrderNumber(order.number),
+      ...serializeDisplayOrder(req, order),
     },
     qrPublicUrl,
   });
@@ -565,12 +648,7 @@ app.get('/api/orders/:id', async (req, res) => {
 
   return res.json({
     order: {
-      ...serializeOrder(req, order),
-      customerName: order.customer_name || 'Sem nome',
-      items: order.items || 'Sem observações',
-      createdAtFormatted: formatDateTime(order.created_at),
-      updatedAtFormatted: formatDateTime(order.updated_at),
-      numberLabel: formatOrderNumber(order.number),
+      ...serializeDisplayOrder(req, order),
     },
   });
 });

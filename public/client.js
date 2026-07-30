@@ -11,10 +11,12 @@
   const ring = document.querySelector('[data-status-ring]');
   const soundButton = document.querySelector('[data-activate-sound]');
   const hint = document.querySelector('[data-audio-hint]');
+  const clientTimes = document.querySelector('[data-client-times]');
 
   let audioContext = null;
   let audioReady = false;
   let latestKnownStatus = badge?.dataset.status || null;
+  let latestAlertRevision = Number(shell.dataset.alertRevision || 0);
   let alertArmed = false;
   let readyAlertPlayed = false;
   let activeAlertNodes = null;
@@ -40,6 +42,17 @@
     badge.classList.add(`status-${status}`);
     ring.classList.remove(...classes);
     ring.classList.add(`status-${status}`);
+  }
+
+  function updateTimes(order) {
+    if (!clientTimes) {
+      return;
+    }
+
+    const values = [order.createdAtTime, order.preparingAtTime, order.readyAtTime];
+    clientTimes.querySelectorAll('strong').forEach((element, index) => {
+      element.textContent = values[index] || '-';
+    });
   }
 
   function vibrate(durationMs = 5000) {
@@ -193,7 +206,19 @@
     oscillator.stop(now + 0.38);
   }
 
-  function alertReady() {
+  function promptManualAlert() {
+    if (soundButton) {
+      soundButton.textContent = 'Tocar alerta';
+    }
+    setHint('A comanda esta pronta. Toque no botao para liberar o som agora.');
+  }
+
+  function alertReady(options = {}) {
+    const shouldRepeat = Boolean(options.repeat);
+    if (readyAlertPlayed && !shouldRepeat) {
+      return;
+    }
+
     readyAlertPlayed = true;
     document.body.classList.add('is-pulsing');
     setTimeout(() => document.body.classList.remove('is-pulsing'), 5000);
@@ -235,14 +260,20 @@
         setStatus(order.status);
         latestKnownStatus = order.status;
       }
+      updateTimes(order);
+
+      const nextAlertRevision = Number(order.alertRevision || 0);
+      const hasRepeatedAlert = nextAlertRevision > latestAlertRevision;
+      latestAlertRevision = Math.max(latestAlertRevision, nextAlertRevision);
 
       if (order.status === 'ready' && previousStatus !== 'ready' && alertArmed && audioReady && !readyAlertPlayed) {
         alertReady();
+      } else if (order.status === 'ready' && hasRepeatedAlert && alertArmed && audioReady) {
+        alertReady({ repeat: true });
       } else if (order.status === 'ready' && previousStatus !== 'ready' && !readyAlertPlayed) {
-        if (soundButton) {
-          soundButton.textContent = 'Tocar alerta';
-        }
-        setHint('A comanda ficou pronta. Toque no botao para liberar o som agora.');
+        promptManualAlert();
+      } else if (order.status === 'ready' && hasRepeatedAlert) {
+        promptManualAlert();
       }
 
       if (order.status === 'delivered' && hint) {
@@ -289,20 +320,37 @@
       const previousStatus = badge?.dataset.status;
       setStatus(order.status);
       latestKnownStatus = order.status;
+      latestAlertRevision = Math.max(latestAlertRevision, Number(order.alertRevision || 0));
 
       if (order.status === 'ready' && previousStatus !== 'ready') {
         if (audioReady && alertArmed && !readyAlertPlayed) {
           alertReady();
         } else if (hint) {
-          if (soundButton) {
-            soundButton.textContent = 'Tocar alerta';
-          }
-          setHint('A comanda ficou pronta. Toque no botao para liberar o som agora.');
+          promptManualAlert();
         }
       }
 
       if (order.status === 'delivered' && hint) {
         setHint('Pedido entregue. Voce pode fechar esta tela.');
+      }
+    });
+
+    socket.on('order:alert', (order) => {
+      if (!order || order.id !== orderId) return;
+
+      const nextAlertRevision = Number(order.alertRevision || 0);
+      if (nextAlertRevision <= latestAlertRevision) {
+        return;
+      }
+
+      latestAlertRevision = nextAlertRevision;
+      setStatus(order.status);
+      latestKnownStatus = order.status;
+
+      if (order.status === 'ready' && audioReady && alertArmed) {
+        alertReady({ repeat: true });
+      } else if (order.status === 'ready') {
+        promptManualAlert();
       }
     });
   }

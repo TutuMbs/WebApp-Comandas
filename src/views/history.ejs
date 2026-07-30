@@ -12,6 +12,7 @@
 
   <nav class="topnav">
     <a class="nav-link" href="/dashboard">Ativas</a>
+    <a class="nav-link" href="/painel">Painel</a>
     <a class="nav-link is-active" href="/history">Histórico</a>
     <form action="/logout" method="post">
       <button class="btn btn-ghost" type="submit">Sair</button>
@@ -50,8 +51,7 @@
               <th>Nº</th>
               <th>Cliente</th>
               <th>Itens</th>
-              <th>Pronto em</th>
-              <th>Entregue em</th>
+              <th>Horários</th>
             </tr>
           </thead>
           <tbody>
@@ -60,8 +60,14 @@
                 <td><strong><%= order.numberLabel %></strong></td>
                 <td><strong><%= order.customerName %></strong></td>
                 <td><span class="cell-muted"><%= order.items %></span></td>
-                <td class="cell-muted"><%= order.updatedAtFormatted %></td>
-                <td class="cell-muted"><%= order.deliveredAtFormatted %></td>
+                <td class="cell-muted">
+                  <div class="time-stack">
+                    <span>Pedido <strong><%= order.createdAtTime %></strong></span>
+                    <span>Preparo <strong><%= order.preparingAtTime %></strong></span>
+                    <span>Pronto <strong><%= order.readyAtTime %></strong></span>
+                    <span>Entregue <strong><%= order.deliveredAtTime %></strong></span>
+                  </div>
+                </td>
               </tr>
             <% }) %>
           </tbody>

@@ -1,0 +1,104 @@
+<%- include('partials/head', { pageTitle, bodyClass: `app-page call-panel-page ${fullscreen ? 'call-panel-fullscreen-page' : ''}` }) %>
+<% if (!fullscreen) { %>
+  <header class="topbar">
+    <div class="brand-wrap">
+      <a class="brand" href="/dashboard">
+        <span class="brand-mark">CQ</span>
+        <span>
+          <strong>Comandas QR</strong>
+          <small><%= authUser.establishment_name %></small>
+        </span>
+      </a>
+    </div>
+
+    <nav class="topnav">
+      <a class="nav-link" href="/dashboard">Ativas</a>
+      <a class="nav-link is-active" href="/painel">Painel</a>
+      <a class="nav-link" href="/painel/configuracoes">Configurações</a>
+      <a class="nav-link" href="/history">Histórico</a>
+      <form action="/logout" method="post">
+        <button class="btn btn-ghost" type="submit">Sair</button>
+      </form>
+    </nav>
+  </header>
+<% } %>
+
+<main class="call-panel-shell <%= fullscreen ? 'is-fullscreen' : '' %>">
+  <section class="call-board" data-call-board>
+    <div class="call-board-head">
+      <div class="call-board-title">
+        <div class="eyebrow">Painel de chamada</div>
+        <h1><%= authUser.establishment_name %></h1>
+      </div>
+      <div class="call-clock" data-call-clock></div>
+    </div>
+
+    <% if (!fullscreen) { %>
+      <div class="call-panel-actions">
+        <a class="btn btn-primary btn-sm" href="/painel/tela-cheia" data-open-fullscreen>Abrir tela cheia</a>
+        <a class="btn btn-secondary btn-sm" href="/painel/configuracoes">Configurações</a>
+      </div>
+    <% } %>
+
+    <div class="call-columns">
+      <section class="call-column is-preparing">
+        <header>
+          <span>Em preparo</span>
+          <strong data-preparing-count><%= preparingCount %></strong>
+        </header>
+        <div class="call-list" data-call-list="preparing">
+          <% const preparingOrders = orders.filter((order) => order.status === 'preparing'); %>
+          <% if (preparingOrders.length === 0) { %>
+            <div class="call-list-empty">Nenhum pedido</div>
+          <% } %>
+          <% preparingOrders.forEach((order) => { %>
+            <article class="call-ticket" data-call-ticket data-order-id="<%= order.id %>">
+              <span><%= order.numberLabel %></span>
+              <strong><%= order.customerName %></strong>
+              <div class="call-ticket-times">
+                <small>Pedido <b><%= order.createdAtTime %></b></small>
+                <small>Preparo <b><%= order.preparingAtTime %></b></small>
+                <small>Pronto <b><%= order.readyAtTime %></b></small>
+              </div>
+            </article>
+          <% }) %>
+        </div>
+      </section>
+
+      <section class="call-column is-ready">
+        <header>
+          <span>Pronto</span>
+          <strong data-ready-count><%= readyCount %></strong>
+        </header>
+        <div class="call-list" data-call-list="ready">
+          <% const readyOrders = orders.filter((order) => order.status === 'ready'); %>
+          <% if (readyOrders.length === 0) { %>
+            <div class="call-list-empty">Nenhum pedido</div>
+          <% } %>
+          <% readyOrders.forEach((order) => { %>
+            <article class="call-ticket" data-call-ticket data-order-id="<%= order.id %>">
+              <span><%= order.numberLabel %></span>
+              <strong><%= order.customerName %></strong>
+              <div class="call-ticket-times">
+                <small>Pedido <b><%= order.createdAtTime %></b></small>
+                <small>Preparo <b><%= order.preparingAtTime %></b></small>
+                <small>Pronto <b><%= order.readyAtTime %></b></small>
+              </div>
+            </article>
+          <% }) %>
+        </div>
+      </section>
+    </div>
+  </section>
+</main>
+
+<div class="ready-overlay" data-ready-overlay hidden>
+  <div>
+    <span>Pedido pronto</span>
+    <strong data-ready-overlay-name></strong>
+    <small data-ready-overlay-number></small>
+  </div>
+</div>
+
+<script src="/call-panel.js"></script>
+<%- include('partials/footer') %>

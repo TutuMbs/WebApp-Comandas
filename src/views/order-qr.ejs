@@ -12,6 +12,7 @@
 
   <nav class="topnav">
     <a class="nav-link" href="/dashboard">Ativas</a>
+    <a class="nav-link" href="/painel">Painel</a>
     <a class="nav-link" href="/history">Histórico</a>
     <form action="/logout" method="post">
       <button class="btn btn-ghost" type="submit">Sair</button>
@@ -29,6 +30,14 @@
       <div class="detail-list">
         <div><span>Cliente</span><strong><%= order.customerName %></strong></div>
         <div><span>Itens</span><strong><%= order.items %></strong></div>
+        <div>
+          <span>Horários</span>
+          <div class="time-stack">
+            <span>Pedido <strong><%= order.createdAtTime %></strong></span>
+            <span>Preparo <strong><%= order.preparingAtTime %></strong></span>
+            <span>Pronto <strong><%= order.readyAtTime %></strong></span>
+          </div>
+        </div>
         <div><span>URL pública</span><strong><a href="<%= order.publicUrl %>" target="_blank" rel="noreferrer"><%= order.publicUrl %></a></strong></div>
       </div>
 

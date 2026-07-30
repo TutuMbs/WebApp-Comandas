@@ -17,8 +17,11 @@ create table if not exists public.orders (
   customer_name text,
   items text,
   status text not null check (status in ('awaiting', 'preparing', 'ready', 'delivered')),
+  alert_revision integer not null default 0,
   created_at timestamptz not null,
   updated_at timestamptz not null,
+  preparing_at timestamptz,
+  ready_at timestamptz,
   delivered_at timestamptz,
   unique (user_id, number)
 );
@@ -34,6 +37,13 @@ grant all on table public.orders to service_role;
 create index if not exists idx_orders_user_status on public.orders(user_id, status);
 create index if not exists idx_orders_user_created on public.orders(user_id, created_at);
 create index if not exists idx_orders_user_number on public.orders(user_id, number);
+
+alter table public.orders
+  add column if not exists alert_revision integer not null default 0;
+
+alter table public.orders
+  add column if not exists preparing_at timestamptz,
+  add column if not exists ready_at timestamptz;
 
 create or replace function public.create_order(
   p_user_id bigint,
@@ -66,7 +76,9 @@ begin
     items,
     status,
     created_at,
-    updated_at
+    updated_at,
+    preparing_at,
+    ready_at
   )
   values (
     new_id,
@@ -76,7 +88,9 @@ begin
     p_items,
     coalesce(p_status, 'awaiting'),
     now(),
-    now()
+    now(),
+    case when coalesce(p_status, 'awaiting') in ('preparing', 'ready', 'delivered') then now() else null end,
+    case when coalesce(p_status, 'awaiting') in ('ready', 'delivered') then now() else null end
   )
   returning *
   into created_row;

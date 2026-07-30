@@ -53,6 +53,21 @@
     return form;
   }
 
+  function createNotifyForm(order) {
+    const form = document.createElement('form');
+    form.method = 'post';
+    form.action = `/orders/${order.id}/notify`;
+    form.dataset.notifyForm = '';
+
+    const button = document.createElement('button');
+    button.className = 'btn btn-secondary btn-sm';
+    button.type = 'submit';
+    button.textContent = 'Reenviar aviso';
+
+    form.appendChild(button);
+    return form;
+  }
+
   function updateActions(row, order) {
     const actionRow = row.querySelector('[data-order-actions]');
     if (!actionRow) {
@@ -69,6 +84,26 @@
     if (order.status !== 'delivered') {
       actionRow.appendChild(createStatusForm(order, 'delivered', 'Entregue', 'btn-ghost'));
     }
+    if (order.status === 'ready') {
+      actionRow.appendChild(createNotifyForm(order));
+    }
+  }
+
+  function updateTimes(row, order) {
+    const times = row.querySelector('[data-order-times]');
+    if (!times) {
+      return;
+    }
+
+    times.innerHTML = `
+      <span>Pedido <strong></strong></span>
+      <span>Preparo <strong></strong></span>
+      <span>Pronto <strong></strong></span>
+    `;
+    const values = [order.createdAtTime, order.preparingAtTime, order.readyAtTime];
+    times.querySelectorAll('strong').forEach((element, index) => {
+      element.textContent = values[index] || '-';
+    });
   }
 
   function createOrderRow(order) {
@@ -80,7 +115,7 @@
       <td><strong data-order-customer></strong></td>
       <td><span class="cell-muted" data-order-items></span></td>
       <td><span data-order-status></span></td>
-      <td class="cell-muted" data-order-updated></td>
+      <td class="cell-muted"><div class="time-stack" data-order-times></div></td>
       <td><a class="btn btn-ghost btn-sm" data-order-qr>Abrir</a></td>
       <td><div class="action-row" data-order-actions></div></td>
     `;
@@ -153,7 +188,7 @@
     setText(row, '[data-order-number]', order.numberLabel);
     setText(row, '[data-order-customer]', order.customerName);
     setText(row, '[data-order-items]', order.items);
-    setText(row, '[data-order-updated]', order.updatedAtFormatted);
+    updateTimes(row, order);
 
     const qrLink = row.querySelector('[data-order-qr]');
     if (qrLink) {
@@ -200,7 +235,9 @@
 
       const payload = await response.json();
       const orders = payload.orders || [];
-      const signature = orders.map((order) => `${order.id}:${order.status}:${order.updatedAt}`).join('|');
+      const signature = orders
+        .map((order) => `${order.id}:${order.status}:${order.updatedAt}:${order.alertRevision}`)
+        .join('|');
 
       if (signature !== lastSignature) {
         reconcileRows(orders);
@@ -222,10 +259,56 @@
     socket.on('order:updated', (order) => {
       refreshRow(order);
     });
+
+    socket.on('order:alert', (order) => {
+      refreshRow(order);
+    });
   } else {
     setInterval(syncDashboard, realtimeTransport === 'polling' ? 2000 : 5000);
     syncDashboard();
   }
+
+  document.addEventListener('submit', async (event) => {
+    const form = event.target.closest('[data-notify-form]');
+    if (!form) {
+      return;
+    }
+
+    event.preventDefault();
+    const button = form.querySelector('button');
+    if (button) {
+      button.disabled = true;
+      button.textContent = 'Enviando...';
+    }
+
+    try {
+      const response = await fetch(form.action, {
+        method: 'POST',
+        headers: {
+          Accept: 'application/json',
+        },
+      });
+
+      if (response.ok) {
+        const payload = await response.json();
+        refreshRow(payload.order);
+        if (button) {
+          button.textContent = 'Aviso enviado';
+        }
+        setTimeout(() => {
+          if (button) {
+            button.disabled = false;
+            button.textContent = 'Reenviar aviso';
+          }
+        }, 1400);
+        return;
+      }
+    } catch {
+      // fall through to the normal form submission below
+    }
+
+    form.submit();
+  });
 
   updateStats();
 })();
