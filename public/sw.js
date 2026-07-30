@@ -1,4 +1,4 @@
-const CACHE_NAME = 'comandas-qr-v11';
+const CACHE_NAME = 'comandas-qr-v12';
 const ASSETS = [
   '/',
   '/login',

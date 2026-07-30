@@ -125,19 +125,23 @@
 
     const scheduleSound = () => {
       const now = audioContext.currentTime;
-      const volume = options.test ? 0.16 : 0.32;
-      [0, 0.24, 0.48, 0.72].forEach((offset, index) => {
+      const volume = options.test ? 0.25 : 0.72;
+      const pattern = options.test
+        ? [0, 0.18, 0.36]
+        : [0, 0.16, 0.32, 0.48, 0.64, 0.8, 0.96, 1.12, 1.28, 1.44, 1.6, 1.76];
+
+      pattern.forEach((offset, index) => {
         const oscillator = audioContext.createOscillator();
         const gain = audioContext.createGain();
-        oscillator.type = 'square';
-        oscillator.frequency.setValueAtTime(index % 2 === 0 ? 740 : 988, now + offset);
+        oscillator.type = index % 2 === 0 ? 'square' : 'sawtooth';
+        oscillator.frequency.setValueAtTime(index % 2 === 0 ? 1240 : 1568, now + offset);
         gain.gain.setValueAtTime(0.0001, now + offset);
-        gain.gain.exponentialRampToValueAtTime(volume, now + offset + 0.025);
-        gain.gain.exponentialRampToValueAtTime(0.0001, now + offset + 0.2);
+        gain.gain.exponentialRampToValueAtTime(volume, now + offset + 0.015);
+        gain.gain.exponentialRampToValueAtTime(0.0001, now + offset + 0.13);
         oscillator.connect(gain);
         gain.connect(audioContext.destination);
         oscillator.start(now + offset);
-        oscillator.stop(now + offset + 0.22);
+        oscillator.stop(now + offset + 0.15);
       });
     };
 
