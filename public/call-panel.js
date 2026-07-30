@@ -14,6 +14,7 @@
   const overlayNumber = document.querySelector('[data-ready-overlay-number]');
   const saveState = document.querySelector('[data-settings-save-state]');
   const fullscreenLinks = document.querySelectorAll('[data-open-fullscreen]');
+  const soundButtons = document.querySelectorAll('[data-panel-sound]');
   const STORAGE_KEY = 'callPanelAlertDurationSeconds';
   const DEFAULT_ALERT_SECONDS = 3;
   const hasPanel = Boolean(lists.preparing || lists.ready);
@@ -23,8 +24,15 @@
       (ticket) => ticket.dataset.orderId,
     ),
   );
+  let knownReadyRevisions = new Map();
   let overlayTimer = null;
   let firstSync = true;
+  let audioContext = null;
+  let soundReady = false;
+
+  document.querySelectorAll('[data-call-list="ready"] [data-call-ticket]').forEach((ticket) => {
+    knownReadyRevisions.set(ticket.dataset.orderId, Number(ticket.dataset.alertRevision || 0));
+  });
 
   function getAlertDurationMs() {
     const storedValue = Number(window.localStorage.getItem(STORAGE_KEY));
@@ -60,7 +68,76 @@
     });
 
     ticket.append(number, customer, times);
+
+    if (order.status === 'ready') {
+      const actions = document.createElement('div');
+      actions.className = 'call-ticket-actions';
+
+      const resendButton = document.createElement('button');
+      resendButton.className = 'btn btn-secondary btn-sm';
+      resendButton.type = 'button';
+      resendButton.dataset.resendAlert = '';
+      resendButton.dataset.orderId = order.id;
+      resendButton.textContent = 'Reenviar aviso';
+
+      actions.appendChild(resendButton);
+      ticket.appendChild(actions);
+    }
+
     return ticket;
+  }
+
+  function updateSoundButtons() {
+    soundButtons.forEach((button) => {
+      button.textContent = soundReady ? 'Som ativado' : 'Ativar som';
+      button.classList.toggle('btn-primary', soundReady);
+      button.classList.toggle('btn-secondary', !soundReady);
+    });
+  }
+
+  async function enableSound() {
+    const AudioContextConstructor = window.AudioContext || window.webkitAudioContext;
+    if (!AudioContextConstructor) {
+      soundButtons.forEach((button) => {
+        button.textContent = 'Som indisponível';
+        button.disabled = true;
+      });
+      return false;
+    }
+
+    if (!audioContext) {
+      audioContext = new AudioContextConstructor();
+    }
+    if (audioContext.state === 'suspended') {
+      await audioContext.resume();
+    }
+
+    soundReady = true;
+    updateSoundButtons();
+    playPanelSound({ soft: true });
+    return true;
+  }
+
+  function playPanelSound(options = {}) {
+    if (!soundReady || !audioContext) {
+      return;
+    }
+
+    const now = audioContext.currentTime;
+    const volume = options.soft ? 0.08 : 0.22;
+    [0, 0.22, 0.44].forEach((offset, index) => {
+      const oscillator = audioContext.createOscillator();
+      const gain = audioContext.createGain();
+      oscillator.type = 'sine';
+      oscillator.frequency.setValueAtTime(index % 2 === 0 ? 880 : 1175, now + offset);
+      gain.gain.setValueAtTime(0.0001, now + offset);
+      gain.gain.exponentialRampToValueAtTime(volume, now + offset + 0.02);
+      gain.gain.exponentialRampToValueAtTime(0.0001, now + offset + 0.18);
+      oscillator.connect(gain);
+      gain.connect(audioContext.destination);
+      oscillator.start(now + offset);
+      oscillator.stop(now + offset + 0.2);
+    });
   }
 
   function renderList(status, orders) {
@@ -98,6 +175,7 @@
     overlay.classList.remove('is-showing');
     void overlay.offsetWidth;
     overlay.classList.add('is-showing');
+    playPanelSound();
 
     overlayTimer = window.setTimeout(() => {
       overlay.hidden = true;
@@ -109,17 +187,24 @@
     const preparingOrders = orders.filter((order) => order.status === 'preparing');
     const readyOrders = orders.filter((order) => order.status === 'ready');
     const nextReadyIds = new Set(readyOrders.map((order) => order.id));
+    const nextReadyRevisions = new Map(readyOrders.map((order) => [order.id, Number(order.alertRevision || 0)]));
 
     if (!firstSync) {
-      const newlyReady = readyOrders.find((order) => !knownReadyIds.has(order.id));
-      if (newlyReady) {
-        showReadyOverlay(newlyReady);
+      const orderToAlert = readyOrders.find((order) => {
+        if (!knownReadyIds.has(order.id)) {
+          return true;
+        }
+        return Number(order.alertRevision || 0) > Number(knownReadyRevisions.get(order.id) || 0);
+      });
+      if (orderToAlert) {
+        showReadyOverlay(orderToAlert);
       }
     }
 
     renderList('preparing', preparingOrders);
     renderList('ready', readyOrders);
     knownReadyIds = nextReadyIds;
+    knownReadyRevisions = nextReadyRevisions;
     firstSync = false;
   }
 
@@ -176,6 +261,58 @@
     });
   });
 
+  soundButtons.forEach((button) => {
+    button.addEventListener('click', () => {
+      enableSound().catch(() => {
+        button.textContent = 'Erro no som';
+      });
+    });
+  });
+
+  document.addEventListener('click', async (event) => {
+    const button = event.target.closest('[data-resend-alert]');
+    if (!button) {
+      return;
+    }
+
+    const orderId = button.dataset.orderId;
+    if (!orderId) {
+      return;
+    }
+
+    button.disabled = true;
+    button.textContent = 'Reenviando...';
+
+    try {
+      const response = await fetch(`/orders/${orderId}/notify`, {
+        method: 'POST',
+        headers: {
+          Accept: 'application/json',
+          'X-Requested-With': 'fetch',
+        },
+      });
+
+      const payload = await response.json();
+      if (!response.ok || !payload.order) {
+        throw new Error(payload.error || 'Falha ao reenviar');
+      }
+
+      knownReadyRevisions.set(payload.order.id, Number(payload.order.alertRevision || 0));
+      showReadyOverlay(payload.order);
+      button.textContent = 'Aviso reenviado';
+      window.setTimeout(() => {
+        button.disabled = false;
+        button.textContent = 'Reenviar aviso';
+      }, 1400);
+    } catch {
+      button.disabled = false;
+      button.textContent = 'Erro ao reenviar';
+      window.setTimeout(() => {
+        button.textContent = 'Reenviar aviso';
+      }, 1800);
+    }
+  });
+
   if (document.body.classList.contains('call-panel-fullscreen-page')) {
     const shouldRequestFullscreen = window.sessionStorage.getItem('callPanelRequestFullscreen') === '1';
     window.sessionStorage.removeItem('callPanelRequestFullscreen');
@@ -185,6 +322,7 @@
   }
 
   if (hasPanel) {
+    updateSoundButtons();
     Object.keys(lists).forEach((status) => {
       const list = lists[status];
       if (list && list.children.length === 0) {

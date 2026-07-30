@@ -19,9 +19,11 @@ const {
   findUserByEmail,
   findUserByResetTokenHash,
   getOrderByIdForUser,
+  getOrderNumberSettings,
   listDeliveredOrders,
   listOrders,
   resendOrderAlert,
+  setNextOrderNumber,
   setPasswordResetToken,
   updateOrderStatus,
   updatePassword,
@@ -507,10 +509,37 @@ app.get('/painel/tela-cheia', requireAuth, async (req, res) => {
   });
 });
 
-app.get('/painel/configuracoes', requireAuth, (req, res) => {
+app.get('/painel/configuracoes', requireAuth, async (req, res) => {
+  const orderNumberSettings = await getOrderNumberSettings(Number(req.authUser.sub));
+
   return res.render('call-panel-settings', {
     pageTitle: 'Configurações do painel',
+    orderNumberSettings,
+    orderNumberMessage: null,
+    orderNumberError: null,
   });
+});
+
+app.post('/configuracoes/numeracao', requireAuth, async (req, res) => {
+  const nextNumber = Number(req.body.nextOrderNumber);
+  const orderNumberSettings = await getOrderNumberSettings(Number(req.authUser.sub));
+
+  try {
+    const updatedSettings = await setNextOrderNumber(Number(req.authUser.sub), nextNumber);
+    return res.render('call-panel-settings', {
+      pageTitle: 'Configurações do painel',
+      orderNumberSettings: updatedSettings,
+      orderNumberMessage: updatedSettings.message,
+      orderNumberError: null,
+    });
+  } catch (error) {
+    return res.status(400).render('call-panel-settings', {
+      pageTitle: 'Configurações do painel',
+      orderNumberSettings,
+      orderNumberMessage: null,
+      orderNumberError: error.message || 'Não foi possível salvar a numeração.',
+    });
+  }
 });
 
 app.get('/api/dashboard', requireAuth, async (req, res) => {
@@ -605,8 +634,18 @@ app.post('/orders/:id/status', requireAuth, async (req, res) => {
 });
 
 app.post('/orders/:id/notify', requireAuth, async (req, res) => {
+  const wantsJson =
+    req.xhr ||
+    req.get('x-requested-with') === 'fetch' ||
+    req.accepts(['json', 'html']) === 'json' ||
+    String(req.get('accept') || '').includes('application/json');
+
   const order = await resendOrderAlert(req.params.id, Number(req.authUser.sub));
   if (!order) {
+    if (wantsJson) {
+      return res.status(404).json({ ok: false, error: 'order_not_found' });
+    }
+
     return res.status(404).render('not-found', {
       pageTitle: 'Comanda não encontrada',
       message: 'Não encontramos essa comanda no seu estabelecimento.',
@@ -615,7 +654,7 @@ app.post('/orders/:id/notify', requireAuth, async (req, res) => {
   }
 
   emitOrderEvents(req, order, 'order:alert');
-  if (req.accepts('json') && !req.accepts('html')) {
+  if (wantsJson) {
     return res.json({ ok: true, order: serializeDisplayOrder(req, order) });
   }
 

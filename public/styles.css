@@ -722,6 +722,19 @@ textarea:focus {
   border-radius: 12px;
 }
 
+.call-panel-floating-actions {
+  position: fixed;
+  top: 14px;
+  right: 14px;
+  z-index: 12;
+}
+
+.call-panel-floating-actions .btn {
+  border-radius: 12px;
+  background: rgba(8, 12, 23, 0.72);
+  backdrop-filter: blur(12px);
+}
+
 .call-columns {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -857,6 +870,18 @@ textarea:focus {
   font-variant-numeric: tabular-nums;
 }
 
+.call-ticket-actions {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.call-ticket-actions .btn {
+  min-height: 30px;
+  padding: 6px 9px;
+  border-radius: 10px;
+  font-size: 0.76rem;
+}
+
 .call-panel-shell.is-fullscreen .call-ticket strong {
   font-size: clamp(2.2rem, 4.2vw, 4.8rem);
 }
@@ -864,6 +889,12 @@ textarea:focus {
 .call-panel-shell.is-fullscreen .call-ticket-times {
   gap: 5px 10px;
   font-size: clamp(0.7rem, 0.9vw, 0.9rem);
+}
+
+.call-panel-shell.is-fullscreen .call-ticket-actions .btn {
+  min-height: 28px;
+  padding: 5px 8px;
+  font-size: 0.7rem;
 }
 
 .call-list-empty {

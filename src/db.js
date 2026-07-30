@@ -1,6 +1,8 @@
 const { createClient } = require('@supabase/supabase-js');
+const crypto = require('node:crypto');
 
 let supabaseClient = null;
+const COUNTER_SEED_ITEMS = '__counter_seed__';
 
 function getSupabaseConfig() {
   const supabaseUrl = process.env.SUPABASE_URL || null;
@@ -73,6 +75,10 @@ function normalizeDbUser(row) {
     reset_token_expires_at: row.reset_token_expires_at == null ? null : Number(row.reset_token_expires_at),
     created_at: row.created_at ? String(row.created_at) : null,
   };
+}
+
+function isCounterSeedOrder(row) {
+  return row?.items === COUNTER_SEED_ITEMS;
 }
 
 async function ensureNoError(result, context) {
@@ -267,6 +273,7 @@ async function listOrders(userId, filters = {}) {
       establishment_name: row.users.establishment_name,
     }),
   );
+  rows = rows.filter((row) => !isCounterSeedOrder(row));
 
   if (filters.q) {
     const q = String(filters.q).trim().toLowerCase();
@@ -280,6 +287,98 @@ async function listOrders(userId, filters = {}) {
   }
 
   return rows;
+}
+
+async function getOrderNumberSettings(userId) {
+  await initDb();
+  const supabase = getSupabaseClient();
+  const maxResult = await supabase
+    .from('orders')
+    .select('number')
+    .eq('user_id', userId)
+    .order('number', { ascending: false })
+    .limit(1);
+  await ensureNoError(maxResult, 'Falha ao buscar numeracao atual');
+
+  const seedResult = await supabase
+    .from('orders')
+    .select('id, number')
+    .eq('user_id', userId)
+    .eq('items', COUNTER_SEED_ITEMS)
+    .order('number', { ascending: false })
+    .limit(1);
+  await ensureNoError(seedResult, 'Falha ao buscar ajuste de numeracao');
+
+  const currentNextNumber = Number(maxResult.data?.[0]?.number || 0) + 1;
+  const configuredNextNumber = seedResult.data?.[0]?.number ? Number(seedResult.data[0].number) + 1 : null;
+
+  return {
+    currentNextNumber,
+    configuredNextNumber,
+  };
+}
+
+async function setNextOrderNumber(userId, nextNumber) {
+  await initDb();
+  const supabase = getSupabaseClient();
+  const targetNextNumber = Number(nextNumber);
+  if (!Number.isInteger(targetNextNumber) || targetNextNumber < 1) {
+    throw new Error('Informe um numero de comanda valido.');
+  }
+
+  const settings = await getOrderNumberSettings(userId);
+  if (targetNextNumber <= settings.currentNextNumber) {
+    return {
+      ...settings,
+      applied: false,
+      message: `A proxima comanda ja sera ${settings.currentNextNumber} ou maior.`,
+    };
+  }
+
+  const seedNumber = targetNextNumber - 1;
+  const seedResult = await supabase
+    .from('orders')
+    .select('id')
+    .eq('user_id', userId)
+    .eq('items', COUNTER_SEED_ITEMS)
+    .limit(1);
+  await ensureNoError(seedResult, 'Falha ao localizar ajuste de numeracao');
+
+  if (seedResult.data?.[0]?.id) {
+    const updateResult = await supabase
+      .from('orders')
+      .update({
+        number: seedNumber,
+        customer_name: 'Ajuste de numeracao',
+        status: 'delivered',
+        updated_at: new Date().toISOString(),
+        delivered_at: new Date().toISOString(),
+      })
+      .eq('id', seedResult.data[0].id)
+      .eq('user_id', userId);
+    await ensureNoError(updateResult, 'Falha ao atualizar ajuste de numeracao');
+  } else {
+    const now = new Date().toISOString();
+    const insertResult = await supabase.from('orders').insert({
+      id: crypto.randomUUID(),
+      user_id: userId,
+      number: seedNumber,
+      customer_name: 'Ajuste de numeracao',
+      items: COUNTER_SEED_ITEMS,
+      status: 'delivered',
+      created_at: now,
+      updated_at: now,
+      delivered_at: now,
+    });
+    await ensureNoError(insertResult, 'Falha ao salvar ajuste de numeracao');
+  }
+
+  return {
+    currentNextNumber: targetNextNumber,
+    configuredNextNumber: targetNextNumber,
+    applied: true,
+    message: `A proxima comanda sera ${targetNextNumber}.`,
+  };
 }
 
 async function listDeliveredOrders(userId, filters = {}) {
@@ -370,11 +469,13 @@ module.exports = {
   findUserByResetTokenHash,
   getOrderById,
   getOrderByIdForUser,
+  getOrderNumberSettings,
   listDeliveredOrders,
   listOrders,
   setPasswordResetToken,
   clearPasswordResetToken,
   resendOrderAlert,
+  setNextOrderNumber,
   updateOrderStatus,
   updatePassword,
 };

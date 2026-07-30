@@ -44,6 +44,39 @@
     </label>
 
     <div class="settings-save-state" data-settings-save-state>Salvo automaticamente</div>
+  </section>
+
+  <section class="panel settings-page-panel">
+    <div class="panel-head">
+      <div>
+        <div class="eyebrow">Numeração</div>
+        <h2>Próxima comanda</h2>
+      </div>
+      <span class="pill">Atual: <%= orderNumberSettings.currentNextNumber %></span>
+    </div>
+
+    <% if (orderNumberError) { %>
+      <div class="alert alert-error"><%= orderNumberError %></div>
+    <% } %>
+    <% if (orderNumberMessage) { %>
+      <div class="alert alert-success"><%= orderNumberMessage %></div>
+    <% } %>
+
+    <form method="post" action="/configuracoes/numeracao" class="filter-form">
+      <label>
+        <span>Número da próxima comanda</span>
+        <input
+          type="number"
+          name="nextOrderNumber"
+          min="1"
+          step="1"
+          value="<%= orderNumberSettings.currentNextNumber %>"
+          required
+        />
+      </label>
+      <p class="muted">Use um número maior que a próxima comanda atual. A sequência segue normalmente depois disso.</p>
+      <button class="btn btn-primary" type="submit">Salvar numeração</button>
+    </form>
 
     <div class="action-row">
       <a class="btn btn-secondary" href="/painel">Voltar ao painel</a>
