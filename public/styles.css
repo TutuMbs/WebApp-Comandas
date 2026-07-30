@@ -735,7 +735,7 @@ textarea:focus {
 
 .call-column {
   min-height: 0;
-  padding: 24px 28px;
+  padding: 18px 22px;
   overflow: hidden;
   border-radius: 18px;
   background: rgba(8, 12, 23, 0.76);
@@ -744,7 +744,7 @@ textarea:focus {
 }
 
 .call-panel-shell.is-fullscreen .call-column {
-  padding: 24px 28px;
+  padding: 18px 22px;
 }
 
 .call-column header {
@@ -752,38 +752,39 @@ textarea:focus {
   align-items: center;
   justify-content: space-between;
   gap: 14px;
-  min-height: 76px;
-  padding-bottom: 18px;
+  min-height: 66px;
+  padding-bottom: 12px;
   border-bottom: 1px solid rgba(255, 255, 255, 0.08);
 }
 
 .call-panel-shell.is-fullscreen .call-column header {
-  min-height: 86px;
+  min-height: 70px;
+  padding-bottom: 12px;
 }
 
 .call-column header span {
-  font-size: clamp(2rem, 3.3vw, 3.8rem);
+  font-size: clamp(1.7rem, 2.8vw, 3rem);
   font-weight: 700;
 }
 
 .call-panel-shell.is-fullscreen .call-column header span {
-  font-size: clamp(2.4rem, 4vw, 4.4rem);
+  font-size: clamp(2rem, 3.2vw, 3.4rem);
 }
 
 .call-column header strong {
-  width: 76px;
-  height: 76px;
+  width: 62px;
+  height: 62px;
   display: grid;
   place-items: center;
   border-radius: 14px;
-  font-size: 2.2rem;
+  font-size: 1.9rem;
   color: #07111f;
 }
 
 .call-panel-shell.is-fullscreen .call-column header strong {
-  width: 88px;
-  height: 88px;
-  font-size: 2.6rem;
+  width: 66px;
+  height: 66px;
+  font-size: 2rem;
 }
 
 .call-column.is-preparing header strong {
@@ -796,37 +797,43 @@ textarea:focus {
 
 .call-list {
   display: grid;
-  grid-auto-rows: minmax(112px, auto);
-  gap: 12px;
-  max-height: calc(100vh - 340px);
-  padding-top: 16px;
+  grid-auto-rows: minmax(0, 1fr);
+  gap: 10px;
+  max-height: calc(100vh - 304px);
+  padding-top: 12px;
   overflow: hidden;
 }
 
 .call-panel-shell.is-fullscreen .call-list {
-  grid-auto-rows: minmax(clamp(118px, 14vh, 180px), auto);
-  max-height: calc(100vh - 178px);
+  grid-auto-rows: minmax(0, 1fr);
+  max-height: calc(100vh - 138px);
 }
 
 .call-ticket {
   display: grid;
   align-content: center;
-  gap: 8px;
-  padding: 18px 20px;
+  gap: 6px;
+  padding: 12px 16px;
   border-radius: 14px;
   background: rgba(255, 255, 255, 0.06);
   border: 1px solid rgba(255, 255, 255, 0.1);
 }
 
+.call-panel-shell.is-fullscreen .call-ticket {
+  min-height: 0;
+  gap: 6px;
+  padding: 12px 16px;
+}
+
 .call-ticket span {
   color: var(--muted);
-  font-size: clamp(1rem, 1.6vw, 1.3rem);
+  font-size: clamp(0.86rem, 1.1vw, 1rem);
   font-weight: 700;
   text-transform: uppercase;
 }
 
 .call-ticket strong {
-  font-size: clamp(2.2rem, 4.4vw, 5.2rem);
+  font-size: clamp(1.9rem, 3.6vw, 4rem);
   line-height: 1;
   overflow-wrap: anywhere;
 }
@@ -851,7 +858,12 @@ textarea:focus {
 }
 
 .call-panel-shell.is-fullscreen .call-ticket strong {
-  font-size: clamp(3rem, 6vw, 7.4rem);
+  font-size: clamp(2.2rem, 4.2vw, 4.8rem);
+}
+
+.call-panel-shell.is-fullscreen .call-ticket-times {
+  gap: 5px 10px;
+  font-size: clamp(0.7rem, 0.9vw, 0.9rem);
 }
 
 .call-list-empty {
