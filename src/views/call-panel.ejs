@@ -24,7 +24,7 @@
 <% } %>
 
 <main class="call-panel-shell <%= fullscreen ? 'is-fullscreen' : '' %>">
-  <section class="call-board" data-call-board>
+  <section class="call-board" data-call-board data-show-order-number="<%= showOrderNumber ? '1' : '0' %>">
     <div class="call-board-head">
       <div class="call-board-title">
         <div class="eyebrow">Painel de chamada</div>
@@ -54,7 +54,7 @@
           <% } %>
           <% preparingOrders.forEach((order) => { %>
             <article class="call-ticket" data-call-ticket data-order-id="<%= order.id %>" data-alert-revision="<%= order.alertRevision || 0 %>">
-              <span><%= order.numberLabel %></span>
+              <% if (showOrderNumber) { %><span><%= order.numberLabel %></span><% } %>
               <strong><%= order.customerName %></strong>
               <div class="call-ticket-times">
                 <small>Pedido <b><%= order.createdAtTime %></b></small>
@@ -78,7 +78,7 @@
           <% } %>
           <% readyOrders.forEach((order) => { %>
             <article class="call-ticket" data-call-ticket data-order-id="<%= order.id %>" data-alert-revision="<%= order.alertRevision || 0 %>">
-              <span><%= order.numberLabel %></span>
+              <% if (showOrderNumber) { %><span><%= order.numberLabel %></span><% } %>
               <strong><%= order.customerName %></strong>
               <div class="call-ticket-times">
                 <small>Pedido <b><%= order.createdAtTime %></b></small>

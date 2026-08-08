@@ -220,6 +220,23 @@ label span {
   font-size: 0.92rem;
 }
 
+.checkbox-label {
+  grid-template-columns: auto 1fr;
+  align-items: center;
+  gap: 12px;
+}
+
+.checkbox-label input {
+  width: 20px;
+  height: 20px;
+  accent-color: var(--accent);
+}
+
+.checkbox-label span {
+  color: var(--text);
+  font-weight: 700;
+}
+
 input,
 select,
 textarea {

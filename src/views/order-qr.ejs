@@ -24,10 +24,13 @@
   <section class="panel qr-panel">
     <div class="qr-copy">
       <div class="eyebrow">Nova comanda</div>
-      <h1><%= order.numberLabel %></h1>
+      <h1><%= order.showOrderNumber ? order.numberLabel : 'Pedido criado' %></h1>
       <p class="lede">Compartilhe este QR com o cliente. Ele abre a página pública da comanda e recebe o aviso em tempo real.</p>
 
       <div class="detail-list">
+        <% if (order.showOrderNumber) { %>
+          <div><span>Número</span><strong><%= order.numberLabel %></strong></div>
+        <% } %>
         <div><span>Cliente</span><strong><%= order.customerName %></strong></div>
         <div><span>Itens</span><strong><%= order.items %></strong></div>
         <div>
@@ -49,8 +52,10 @@
     </div>
 
     <div class="qr-card">
-      <img src="<%= qrDataUrl %>" alt="QR Code da comanda <%= order.numberLabel %>" class="qr-image" />
-      <div class="qr-caption"><%= order.numberLabel %></div>
+      <img src="<%= qrDataUrl %>" alt="QR Code do pedido" class="qr-image" />
+      <% if (order.showOrderNumber) { %>
+        <div class="qr-caption"><%= order.numberLabel %></div>
+      <% } %>
     </div>
   </section>
 </main>

@@ -15,6 +15,7 @@
   const saveState = document.querySelector('[data-settings-save-state]');
   const fullscreenLinks = document.querySelectorAll('[data-open-fullscreen]');
   const soundButtons = document.querySelectorAll('[data-panel-sound]');
+  const showOrderNumber = document.querySelector('[data-show-order-number]')?.dataset.showOrderNumber !== '0';
   const STORAGE_KEY = 'callPanelAlertDurationSeconds';
   const DEFAULT_ALERT_SECONDS = 3;
   const hasPanel = Boolean(lists.preparing || lists.ready);
@@ -67,7 +68,10 @@
       times.appendChild(item);
     });
 
-    ticket.append(number, customer, times);
+    if (showOrderNumber) {
+      ticket.appendChild(number);
+    }
+    ticket.append(customer, times);
 
     if (order.status === 'ready') {
       const actions = document.createElement('div');
@@ -183,7 +187,7 @@
 
     window.clearTimeout(overlayTimer);
     overlayName.textContent = order.customerName || 'Sem nome';
-    overlayNumber.textContent = order.numberLabel || '';
+    overlayNumber.textContent = showOrderNumber ? order.numberLabel || '' : '';
     overlay.hidden = false;
     overlay.classList.remove('is-showing');
     void overlay.offsetWidth;

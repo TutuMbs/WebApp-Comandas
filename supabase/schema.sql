@@ -7,6 +7,7 @@ create table if not exists public.users (
   password_hash text not null,
   reset_token_hash text,
   reset_token_expires_at bigint,
+  show_order_number boolean not null default true,
   created_at timestamptz not null default now()
 );
 
@@ -44,6 +45,9 @@ alter table public.orders
 alter table public.orders
   add column if not exists preparing_at timestamptz,
   add column if not exists ready_at timestamptz;
+
+alter table public.users
+  add column if not exists show_order_number boolean not null default true;
 
 create or replace function public.create_order(
   p_user_id bigint,

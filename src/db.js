@@ -72,6 +72,7 @@ function normalizeDbUser(row) {
   return {
     ...row,
     id: Number(row.id),
+    show_order_number: row.show_order_number !== false,
     reset_token_expires_at: row.reset_token_expires_at == null ? null : Number(row.reset_token_expires_at),
     created_at: row.created_at ? String(row.created_at) : null,
   };
@@ -189,12 +190,21 @@ async function updatePassword(userId, passwordHash) {
 async function getOrderById(orderId) {
   await initDb();
   const supabase = getSupabaseClient();
-  const result = await supabase
+  let result = await supabase
     .from('orders')
-    .select('*, users!inner(establishment_name)')
+    .select('*, users!inner(establishment_name, show_order_number)')
     .eq('id', orderId)
     .limit(1)
     .maybeSingle();
+
+  if (result.error && /show_order_number/.test(result.error.message || '')) {
+    result = await supabase
+      .from('orders')
+      .select('*, users!inner(establishment_name)')
+      .eq('id', orderId)
+      .limit(1)
+      .maybeSingle();
+  }
 
   await ensureNoError(result, 'Falha ao buscar comanda');
   if (!result.data) {
@@ -204,19 +214,30 @@ async function getOrderById(orderId) {
   return normalizeDbOrder({
     ...result.data,
     establishment_name: result.data.users.establishment_name,
+    show_order_number: result.data.users.show_order_number !== false,
   });
 }
 
 async function getOrderByIdForUser(orderId, userId) {
   await initDb();
   const supabase = getSupabaseClient();
-  const result = await supabase
+  let result = await supabase
     .from('orders')
-    .select('*, users!inner(establishment_name)')
+    .select('*, users!inner(establishment_name, show_order_number)')
     .eq('id', orderId)
     .eq('user_id', userId)
     .limit(1)
     .maybeSingle();
+
+  if (result.error && /show_order_number/.test(result.error.message || '')) {
+    result = await supabase
+      .from('orders')
+      .select('*, users!inner(establishment_name)')
+      .eq('id', orderId)
+      .eq('user_id', userId)
+      .limit(1)
+      .maybeSingle();
+  }
 
   await ensureNoError(result, 'Falha ao buscar comanda do usuario');
   if (!result.data) {
@@ -226,12 +247,43 @@ async function getOrderByIdForUser(orderId, userId) {
   return normalizeDbOrder({
     ...result.data,
     establishment_name: result.data.users.establishment_name,
+    show_order_number: result.data.users.show_order_number !== false,
   });
 }
 
 async function createOrder(userId, payload = {}) {
   await initDb();
   const supabase = getSupabaseClient();
+
+  const requestedNumber = Number(payload.number);
+  if (Number.isInteger(requestedNumber) && requestedNumber > 0) {
+    const now = new Date().toISOString();
+    const result = await supabase
+      .from('orders')
+      .insert({
+        id: crypto.randomUUID(),
+        user_id: Number(userId),
+        number: requestedNumber,
+        customer_name: payload.customerName?.trim() || null,
+        items: payload.items?.trim() || null,
+        status: payload.status || 'awaiting',
+        created_at: now,
+        updated_at: now,
+        preparing_at: ['preparing', 'ready', 'delivered'].includes(payload.status) ? now : null,
+        ready_at: ['ready', 'delivered'].includes(payload.status) ? now : null,
+        delivered_at: payload.status === 'delivered' ? now : null,
+      })
+      .select('id')
+      .single();
+
+    if (result.error?.code === '23505' || /duplicate key|orders_user_id_number_key/i.test(result.error?.message || '')) {
+      throw new Error('Ja existe uma comanda com esse numero.');
+    }
+
+    await ensureNoError(result, 'Falha ao criar comanda');
+    return getOrderById(result.data.id);
+  }
+
   const result = await supabase.rpc('create_order', {
     p_user_id: Number(userId),
     p_customer_name: payload.customerName?.trim() || null,
@@ -249,12 +301,37 @@ async function createOrder(userId, payload = {}) {
   return getOrderById(createdOrderId);
 }
 
+async function getUserOrderNumberSettings(userId) {
+  const user = await findUserById(userId);
+  return {
+    showOrderNumber: user?.show_order_number !== false,
+  };
+}
+
+async function setUserOrderNumberVisibility(userId, showOrderNumber) {
+  await initDb();
+  const supabase = getSupabaseClient();
+  const result = await supabase
+    .from('users')
+    .update({
+      show_order_number: Boolean(showOrderNumber),
+    })
+    .eq('id', userId)
+    .select('show_order_number')
+    .single();
+
+  await ensureNoError(result, 'Falha ao salvar exibicao do numero da comanda');
+  return {
+    showOrderNumber: result.data?.show_order_number !== false,
+  };
+}
+
 async function listOrders(userId, filters = {}) {
   await initDb();
   const supabase = getSupabaseClient();
   let query = supabase
     .from('orders')
-    .select('*, users!inner(establishment_name)')
+    .select('*, users!inner(establishment_name, show_order_number)')
     .eq('user_id', userId)
     .order('created_at', { ascending: false });
 
@@ -264,13 +341,31 @@ async function listOrders(userId, filters = {}) {
     query = query.neq('status', 'delivered');
   }
 
-  const result = await query;
+  let result = await query;
+
+  if (result.error && /show_order_number/.test(result.error.message || '')) {
+    query = supabase
+      .from('orders')
+      .select('*, users!inner(establishment_name)')
+      .eq('user_id', userId)
+      .order('created_at', { ascending: false });
+
+    if (filters.status) {
+      query = query.eq('status', filters.status);
+    } else if (filters.activeOnly !== false) {
+      query = query.neq('status', 'delivered');
+    }
+
+    result = await query;
+  }
+
   await ensureNoError(result, 'Falha ao listar comandas');
 
   let rows = result.data.map((row) =>
     normalizeDbOrder({
       ...row,
       establishment_name: row.users.establishment_name,
+      show_order_number: row.users.show_order_number !== false,
     }),
   );
   rows = rows.filter((row) => !isCounterSeedOrder(row));
@@ -489,12 +584,14 @@ module.exports = {
   getOrderById,
   getOrderByIdForUser,
   getOrderNumberSettings,
+  getUserOrderNumberSettings,
   listDeliveredOrders,
   listOrders,
   setPasswordResetToken,
   clearPasswordResetToken,
   resendOrderAlert,
   setNextOrderNumber,
+  setUserOrderNumberVisibility,
   updateOrderStatus,
   updatePassword,
 };

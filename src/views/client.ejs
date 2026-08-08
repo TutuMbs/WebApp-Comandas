@@ -2,7 +2,7 @@
 <main class="client-shell" data-order-id="<%= order.id %>" data-alert-revision="<%= order.alertRevision || 0 %>">
   <section class="client-hero">
     <div class="eyebrow">Acompanhamento da comanda</div>
-    <h1><%= order.numberLabel %></h1>
+    <h1><%= order.showOrderNumber ? order.numberLabel : 'Seu pedido' %></h1>
     <p class="lede">Toque para ativar o aviso e deixe esta tela aberta. Quando o pedido ficar pronto, o celular avisa com som e vibração.</p>
   </section>
 

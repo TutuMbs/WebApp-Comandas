@@ -3,7 +3,7 @@
 MVP full-stack para:
 
 - cadastro e login do administrador
-- criação de comandas com número sequencial
+- criação de comandas com número informado manualmente
 - geração de QR Code único para a página pública
 - atualização em tempo real do status da comanda
 - alerta sonoro e vibração no cliente quando ficar pronto

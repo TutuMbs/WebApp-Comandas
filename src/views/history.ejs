@@ -48,7 +48,7 @@
         <table class="orders-table">
           <thead>
             <tr>
-              <th>Nº</th>
+              <% if (showOrderNumber) { %><th>Nº</th><% } %>
               <th>Cliente</th>
               <th>Itens</th>
               <th>Horários</th>
@@ -57,7 +57,7 @@
           <tbody>
             <% orders.forEach((order) => { %>
               <tr>
-                <td><strong><%= order.numberLabel %></strong></td>
+                <% if (showOrderNumber) { %><td><strong><%= order.numberLabel %></strong></td><% } %>
                 <td><strong><%= order.customerName %></strong></td>
                 <td><span class="cell-muted"><%= order.items %></span></td>
                 <td class="cell-muted">

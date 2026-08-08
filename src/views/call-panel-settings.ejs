@@ -50,7 +50,36 @@
     <div class="panel-head">
       <div>
         <div class="eyebrow">Numeração</div>
-        <h2>Próxima comanda</h2>
+        <h2>Exibição da comanda</h2>
+      </div>
+    </div>
+
+    <% if (visibilityError) { %>
+      <div class="alert alert-error"><%= visibilityError %></div>
+    <% } %>
+    <% if (visibilityMessage) { %>
+      <div class="alert alert-success"><%= visibilityMessage %></div>
+    <% } %>
+
+    <form method="post" action="/configuracoes/exibicao-numero" class="filter-form">
+      <label class="checkbox-label">
+        <input
+          type="checkbox"
+          name="showOrderNumber"
+          <%= orderNumberVisibility.showOrderNumber ? 'checked' : '' %>
+        />
+        <span>Mostrar número da comanda nas telas</span>
+      </label>
+      <p class="muted">Desative para esconder o número no dashboard, painel, QR Code, tela do cliente e histórico.</p>
+      <button class="btn btn-primary" type="submit">Salvar exibição</button>
+    </form>
+  </section>
+
+  <section class="panel settings-page-panel">
+    <div class="panel-head">
+      <div>
+        <div class="eyebrow">Numeração</div>
+        <h2>Próxima sugestão</h2>
       </div>
       <span class="pill">Atual: <%= orderNumberSettings.currentNextNumber %></span>
     </div>
@@ -74,7 +103,7 @@
           required
         />
       </label>
-      <p class="muted">Use um número maior que a próxima comanda atual. A sequência segue normalmente depois disso.</p>
+      <p class="muted">A criação de pedidos agora usa o número digitado no dashboard; este ajuste fica apenas para fluxos automáticos existentes.</p>
       <button class="btn btn-primary" type="submit">Salvar numeração</button>
     </form>
 

@@ -20,10 +20,12 @@ const {
   findUserByResetTokenHash,
   getOrderByIdForUser,
   getOrderNumberSettings,
+  getUserOrderNumberSettings,
   listDeliveredOrders,
   listOrders,
   resendOrderAlert,
   setNextOrderNumber,
+  setUserOrderNumberVisibility,
   setPasswordResetToken,
   updateOrderStatus,
   updatePassword,
@@ -152,12 +154,14 @@ function serializeOrder(req, order) {
   const effectivePreparingAt =
     order.preparing_at || (['preparing', 'ready', 'delivered'].includes(order.status) ? order.updated_at : null);
   const effectiveReadyAt = order.ready_at || (['ready', 'delivered'].includes(order.status) ? order.updated_at : null);
+  const showOrderNumber = order.show_order_number !== false;
 
   return {
     id: order.id,
     userId: order.user_id,
     number: order.number,
-    numberLabel: formatOrderNumber(order.number),
+    showOrderNumber,
+    numberLabel: showOrderNumber ? formatOrderNumber(order.number) : '',
     customerName: order.customer_name || '',
     items: order.items || '',
     status: order.status,
@@ -197,7 +201,9 @@ function serializeDisplayOrder(req, order) {
   };
 }
 
-function emitOrderEvents(req, order, eventName) {
+async function emitOrderEvents(req, order, eventName) {
+  const orderNumberSettings = await getUserOrderNumberSettings(Number(order.user_id));
+  order.show_order_number = orderNumberSettings.showOrderNumber;
   const payload = serializeDisplayOrder(req, order);
   io.to(`order:${order.id}`).emit(eventName, payload);
   io.to(`user:${order.user_id}`).emit(eventName, payload);
@@ -224,6 +230,7 @@ function renderAuthPage(res, view, options = {}) {
 async function renderDashboard(req, res, extra = {}) {
   const payload = await buildDashboardData(req);
   const { search, status, orders, activeCount, preparingCount, readyCount } = payload;
+  const orderNumberSettings = await getUserOrderNumberSettings(Number(req.authUser.sub));
 
   return res.render('dashboard', {
     pageTitle: 'Dashboard',
@@ -233,6 +240,7 @@ async function renderDashboard(req, res, extra = {}) {
     preparingCount,
     readyCount,
     orders: orders.map((order) => serializeDisplayOrder(req, order)),
+    showOrderNumber: orderNumberSettings.showOrderNumber,
     flash: extra.flash || null,
   });
 }
@@ -487,6 +495,7 @@ app.get('/dashboard', requireAuth, async (req, res) => {
 
 app.get('/painel', requireAuth, async (req, res) => {
   const payload = await buildCallPanelData(req);
+  const orderNumberSettings = await getUserOrderNumberSettings(Number(req.authUser.sub));
 
   return res.render('call-panel', {
     pageTitle: 'Painel de chamadas',
@@ -494,11 +503,13 @@ app.get('/painel', requireAuth, async (req, res) => {
     preparingCount: payload.preparingCount,
     readyCount: payload.readyCount,
     orders: payload.orders.map((order) => serializeDisplayOrder(req, order)),
+    showOrderNumber: orderNumberSettings.showOrderNumber,
   });
 });
 
 app.get('/painel/tela-cheia', requireAuth, async (req, res) => {
   const payload = await buildCallPanelData(req);
+  const orderNumberSettings = await getUserOrderNumberSettings(Number(req.authUser.sub));
 
   return res.render('call-panel', {
     pageTitle: 'Painel em tela cheia',
@@ -506,17 +517,22 @@ app.get('/painel/tela-cheia', requireAuth, async (req, res) => {
     preparingCount: payload.preparingCount,
     readyCount: payload.readyCount,
     orders: payload.orders.map((order) => serializeDisplayOrder(req, order)),
+    showOrderNumber: orderNumberSettings.showOrderNumber,
   });
 });
 
 app.get('/painel/configuracoes', requireAuth, async (req, res) => {
   const orderNumberSettings = await getOrderNumberSettings(Number(req.authUser.sub));
+  const orderNumberVisibility = await getUserOrderNumberSettings(Number(req.authUser.sub));
 
   return res.render('call-panel-settings', {
     pageTitle: 'Configurações do painel',
     orderNumberSettings,
+    orderNumberVisibility,
     orderNumberMessage: null,
     orderNumberError: null,
+    visibilityMessage: null,
+    visibilityError: null,
   });
 });
 
@@ -529,32 +545,70 @@ app.post('/configuracoes/numeracao', requireAuth, async (req, res) => {
     return res.render('call-panel-settings', {
       pageTitle: 'Configurações do painel',
       orderNumberSettings: updatedSettings,
+      orderNumberVisibility: await getUserOrderNumberSettings(Number(req.authUser.sub)),
       orderNumberMessage: updatedSettings.message,
       orderNumberError: null,
+      visibilityMessage: null,
+      visibilityError: null,
     });
   } catch (error) {
     return res.status(400).render('call-panel-settings', {
       pageTitle: 'Configurações do painel',
       orderNumberSettings,
+      orderNumberVisibility: await getUserOrderNumberSettings(Number(req.authUser.sub)),
       orderNumberMessage: null,
       orderNumberError: error.message || 'Não foi possível salvar a numeração.',
+      visibilityMessage: null,
+      visibilityError: null,
+    });
+  }
+});
+
+app.post('/configuracoes/exibicao-numero', requireAuth, async (req, res) => {
+  const showOrderNumber = req.body.showOrderNumber === 'on';
+  const orderNumberSettings = await getOrderNumberSettings(Number(req.authUser.sub));
+
+  try {
+    const orderNumberVisibility = await setUserOrderNumberVisibility(Number(req.authUser.sub), showOrderNumber);
+    return res.render('call-panel-settings', {
+      pageTitle: 'Configurações do painel',
+      orderNumberSettings,
+      orderNumberVisibility,
+      orderNumberMessage: null,
+      orderNumberError: null,
+      visibilityMessage: 'Exibição do número da comanda salva.',
+      visibilityError: null,
+    });
+  } catch (error) {
+    return res.status(400).render('call-panel-settings', {
+      pageTitle: 'Configurações do painel',
+      orderNumberSettings,
+      orderNumberVisibility: await getUserOrderNumberSettings(Number(req.authUser.sub)),
+      orderNumberMessage: null,
+      orderNumberError: null,
+      visibilityMessage: null,
+      visibilityError: error.message || 'Não foi possível salvar a exibição do número.',
     });
   }
 });
 
 app.get('/api/dashboard', requireAuth, async (req, res) => {
   const payload = await buildDashboardData(req);
+  const orderNumberSettings = await getUserOrderNumberSettings(Number(req.authUser.sub));
   return res.json({
     ...payload,
     orders: payload.orders.map((order) => serializeDisplayOrder(req, order)),
+    showOrderNumber: orderNumberSettings.showOrderNumber,
   });
 });
 
 app.get('/api/painel', requireAuth, async (req, res) => {
   const payload = await buildCallPanelData(req);
+  const orderNumberSettings = await getUserOrderNumberSettings(Number(req.authUser.sub));
   return res.json({
     ...payload,
     orders: payload.orders.map((order) => serializeDisplayOrder(req, order)),
+    showOrderNumber: orderNumberSettings.showOrderNumber,
   });
 });
 
@@ -563,25 +617,48 @@ app.get('/history', requireAuth, async (req, res) => {
   const orders = await listDeliveredOrders(req.authUser.sub, {
     q: search || null,
   });
+  const orderNumberSettings = await getUserOrderNumberSettings(Number(req.authUser.sub));
 
   return res.render('history', {
     pageTitle: 'Histórico',
     search,
     orders: orders.map((order) => serializeDisplayOrder(req, order)),
+    showOrderNumber: orderNumberSettings.showOrderNumber,
   });
 });
 
 app.post('/orders', requireAuth, async (req, res) => {
+  const orderNumber = Number(req.body.orderNumber);
   const customerName = String(req.body.customerName || '').trim();
   const items = String(req.body.items || '').trim();
 
-  const order = await createOrder(Number(req.authUser.sub), {
-    customerName,
-    items,
-    status: 'awaiting',
-  });
+  if (!Number.isInteger(orderNumber) || orderNumber < 1) {
+    return renderDashboard(req, res, {
+      flash: {
+        type: 'error',
+        message: 'Informe um numero de comanda valido.',
+      },
+    });
+  }
 
-  emitOrderEvents(req, order, 'order:created');
+  let order;
+  try {
+    order = await createOrder(Number(req.authUser.sub), {
+      number: orderNumber,
+      customerName,
+      items,
+      status: 'awaiting',
+    });
+  } catch (error) {
+    return renderDashboard(req, res, {
+      flash: {
+        type: 'error',
+        message: error.message || 'Nao foi possivel criar a comanda.',
+      },
+    });
+  }
+
+  await emitOrderEvents(req, order, 'order:created');
   return res.redirect(`/orders/${order.id}/qr`);
 });
 
@@ -628,7 +705,7 @@ app.post('/orders/:id/status', requireAuth, async (req, res) => {
     });
   }
 
-  emitOrderEvents(req, order, 'order:updated');
+  await emitOrderEvents(req, order, 'order:updated');
   const backUrl = req.get('Referrer') || '/dashboard';
   return res.redirect(backUrl);
 });
@@ -653,7 +730,7 @@ app.post('/orders/:id/notify', requireAuth, async (req, res) => {
     });
   }
 
-  emitOrderEvents(req, order, 'order:alert');
+  await emitOrderEvents(req, order, 'order:alert');
   if (wantsJson) {
     return res.json({ ok: true, order: serializeDisplayOrder(req, order) });
   }
@@ -674,7 +751,7 @@ app.get('/c/:id', async (req, res) => {
 
   const qrPublicUrl = getPublicOrderUrl(req, order.id);
   return res.render('client', {
-    pageTitle: `Acompanhamento - ${formatOrderNumber(order.number)}`,
+    pageTitle: order.show_order_number === false ? 'Acompanhamento do pedido' : `Acompanhamento - ${formatOrderNumber(order.number)}`,
     order: {
       ...serializeDisplayOrder(req, order),
     },

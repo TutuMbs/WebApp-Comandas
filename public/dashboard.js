@@ -8,6 +8,7 @@
   const tableBody = document.querySelector('[data-orders-body]');
   const emptyState = document.querySelector('[data-empty-state]');
   const tableWrap = document.querySelector('[data-orders-table]');
+  const showOrderNumber = document.querySelector('[data-show-order-number]')?.dataset.showOrderNumber !== '0';
   const searchParams = new URLSearchParams(window.location.search);
   let lastSignature = Array.from(rowsById.values())
     .map((row) => `${row.dataset.orderId}:${row.querySelector('[data-order-status]')?.dataset.status || ''}`)
@@ -111,7 +112,7 @@
     row.dataset.orderRow = '';
     row.dataset.orderId = order.id;
     row.innerHTML = `
-      <td><strong data-order-number></strong></td>
+      ${showOrderNumber ? '<td><strong data-order-number></strong></td>' : ''}
       <td><strong data-order-customer></strong></td>
       <td><span class="cell-muted" data-order-items></span></td>
       <td><span data-order-status></span></td>
